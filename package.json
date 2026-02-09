@@ -1,0 +1,33 @@
+{
+  "name": "burnett-metal-building-closer",
+  "version": "1.0.0",
+  "description": "Metal building sales and contract signing application for Burnett Custom Homes",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -l 3000",
+    "dev": "npx serve -l 3000",
+    "serve": "npx serve -l 3000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MingAgent/burnett-metal-building-closer.git"
+  },
+  "keywords": [
+    "construction",
+    "metal-building",
+    "sales",
+    "contract",
+    "signature",
+    "quote",
+    "burnett"
+  ],
+  "author": "MingAgent",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/MingAgent/burnett-metal-building-closer/issues"
+  },
+  "homepage": "https://mingagent.github.io/burnett-metal-building-closer",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
