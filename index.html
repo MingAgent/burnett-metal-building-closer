@@ -154,6 +154,87 @@
       .no-print { display: none !important; }
       .signature-pad, .initials-pad { border: 1px solid var(--bg-black) !important; }
     }
+
+    /* Print contract styles */
+    .print-contract-container {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #1f2937;
+    }
+    .print-header {
+      text-align: center;
+      border-bottom: 3px solid #003057;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .print-header h1 {
+      font-size: 28px;
+      color: #003057;
+      margin: 0 0 10px 0;
+    }
+    .print-header p {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 5px 0;
+    }
+    .print-section {
+      page-break-inside: avoid;
+      margin-bottom: 25px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .print-section h3 {
+      font-size: 16px;
+      color: #003057;
+      border-bottom: 2px solid #05c3de;
+      padding-bottom: 8px;
+      margin: 0 0 15px 0;
+    }
+    .print-section p, .print-section li {
+      font-size: 11px;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .print-initials-box {
+      display: inline-block;
+      border: 1px solid #000;
+      width: 80px;
+      height: 30px;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    .print-signature-section {
+      page-break-before: always;
+      margin-top: 40px;
+    }
+    .print-signature-box {
+      border: 1px solid #000;
+      height: 60px;
+      margin: 10px 0;
+    }
+    .print-summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    .print-summary-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 12px;
+    }
+    .print-summary-table td:first-child {
+      font-weight: 600;
+      width: 40%;
+    }
+    .print-ack-line {
+      font-size: 10px;
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px dashed #9ca3af;
+    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -1551,7 +1632,7 @@
             <div class="mt-6 bg-green-50 border-2 border-green-500 rounded-xl p-4 text-center">
               <p class="text-green-800 font-bold text-lg">✅ Contract Sent Successfully!</p>
               <p class="text-green-700">Copies have been sent to both parties.</p>
-              <button onclick="window.print()" class="mt-3 py-2 px-6 btn-primary rounded-lg font-semibold">🖨️ Print Copy</button>
+              <button onclick="printContract()" class="mt-3 py-2 px-6 btn-primary rounded-lg font-semibold">🖨️ Print Full Contract</button>
             </div>
           ` : ''}
         </div>
@@ -1926,6 +2007,249 @@ Burnett Customs, LLC
       setTimeout(initSignaturePads, 100);
 
       alert('Your email client should open with the contract details. Please send both emails to complete the process.\n\nEmails to:\n• ' + state.customer.email + '\n• bobby@burnettcustoms.net');
+    }
+
+    // Print full contract
+    function printContract() {
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      const total = calculateTotal();
+      const today = new Date().toLocaleDateString();
+
+      // Get initials data URLs
+      const initialsData = {};
+      ['projectOverview', 'paymentTerms', 'timeline', 'responsibilities', 'warranties', 'legalProvisions'].forEach(sectionId => {
+        const canvas = document.getElementById('initials_' + sectionId);
+        if (canvas) {
+          initialsData[sectionId] = canvas.toDataURL('image/png');
+        }
+      });
+
+      // Get signature data URLs
+      const ownerSigCanvas = document.getElementById('ownerSigPad');
+      const contractorSigCanvas = document.getElementById('contractorSigPad');
+      const ownerSigData = ownerSigCanvas ? ownerSigCanvas.toDataURL('image/png') : '';
+      const contractorSigData = contractorSigCanvas ? contractorSigCanvas.toDataURL('image/png') : '';
+
+      // Build print HTML
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Burnett Customs Contract - ${state.customer.name}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; line-height: 1.5; }
+            .container { max-width: 800px; margin: 0 auto; padding: 30px; }
+            .header { text-align: center; border-bottom: 3px solid #003057; padding-bottom: 20px; margin-bottom: 25px; }
+            .header h1 { font-size: 28px; color: #003057; margin-bottom: 5px; }
+            .header p { font-size: 12px; color: #6b7280; }
+            .summary-box { background: #f9fafb; border: 2px solid #003057; border-radius: 8px; padding: 20px; margin-bottom: 25px; }
+            .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+            .summary-item { font-size: 12px; }
+            .summary-item strong { display: block; color: #003057; margin-bottom: 2px; }
+            .section { page-break-inside: avoid; margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; }
+            .section h3 { font-size: 14px; color: #003057; border-bottom: 2px solid #05c3de; padding-bottom: 6px; margin-bottom: 12px; }
+            .section p, .section li { font-size: 10px; line-height: 1.6; margin-bottom: 6px; color: #374151; }
+            .section ul { margin-left: 20px; }
+            .ack-line { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #9ca3af; font-size: 10px; }
+            .initials-img { height: 35px; border: 1px solid #000; background: #fff; }
+            .signature-page { page-break-before: always; margin-top: 30px; }
+            .sig-section { margin-bottom: 30px; }
+            .sig-section h4 { font-size: 14px; color: #003057; margin-bottom: 10px; }
+            .sig-box { border: 1px solid #000; padding: 10px; margin-bottom: 5px; min-height: 70px; display: flex; align-items: center; justify-content: center; }
+            .sig-img { max-height: 60px; max-width: 100%; }
+            .sig-details { font-size: 10px; color: #6b7280; }
+            .final-section { background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; padding: 20px; text-align: center; margin-top: 30px; }
+            @media print {
+              .section { page-break-inside: avoid; }
+              .signature-page { page-break-before: always; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🏗️ BURNETT CUSTOMS</h1>
+              <p>Metal Building Construction Agreement</p>
+              <p>Contract Date: ${today}</p>
+            </div>
+
+            <div class="summary-box">
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <strong>Building Type</strong>
+                  ${type.name}
+                </div>
+                <div class="summary-item">
+                  <strong>Building Size</strong>
+                  ${size.label}
+                </div>
+                <div class="summary-item">
+                  <strong>Eave Height</strong>
+                  ${eave.label}
+                </div>
+                <div class="summary-item">
+                  <strong>Contract Sum</strong>
+                  ${formatCurrency(total)}
+                </div>
+                <div class="summary-item">
+                  <strong>Owner</strong>
+                  ${state.customer.name}<br>
+                  ${state.customer.phone} | ${state.customer.email}
+                </div>
+                <div class="summary-item">
+                  <strong>Property Address</strong>
+                  ${state.customer.propertySameAsMailing
+                    ? state.customer.address1 + (state.customer.address2 ? ', ' + state.customer.address2 : '') + '<br>' + state.customer.city + ', ' + state.customer.state + ' ' + state.customer.zip
+                    : state.customer.propertyAddress1 + (state.customer.propertyAddress2 ? ', ' + state.customer.propertyAddress2 : '') + '<br>' + state.customer.propertyCity + ', ' + state.customer.propertyState + ' ' + state.customer.propertyZip
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 1: Project Overview -->
+            <div class="section">
+              <h3>1. Project Overview</h3>
+              <p><strong>Scope of Work:</strong> Contractor shall furnish all labor, materials, equipment, and services necessary to construct a ${type.name} metal building at the property address specified above, in accordance with the specifications selected by Owner in this Contract.</p>
+              <p><strong>Building Specifications:</strong> ${size.label} with ${eave.label} eave height. Final specifications subject to engineering approval.</p>
+              <p><strong>Contract Sum:</strong> ${formatCurrency(total)} - This is the total amount payable by Owner to Contractor for the complete and satisfactory performance of the Work described herein.</p>
+              <div class="ack-line">
+                <span>✓ Owner acknowledges reading and understanding this section</span>
+                <span>Initials: <img src="${initialsData.projectOverview || ''}" class="initials-img" alt="Initials"></span>
+              </div>
+            </div>
+
+            <!-- Section 2: Payment Terms -->
+            <div class="section">
+              <h3>2. Payment Terms</h3>
+              <p><strong>Payment Schedule:</strong></p>
+              <ul>
+                <li><strong>First Draw (30%):</strong> ${formatCurrency(Math.round(total * 0.30))} - Due upon contract signing</li>
+                <li><strong>Second Draw (40%):</strong> ${formatCurrency(Math.round(total * 0.40))} - Due when materials arrive on site</li>
+                <li><strong>Final Draw (30%):</strong> ${formatCurrency(Math.round(total * 0.30))} - Due upon substantial completion</li>
+              </ul>
+              <p><strong>Late Payment:</strong> Payments not received within 10 days of due date shall accrue interest at 1.5% per month.</p>
+              <p><strong>Selected Payment Method:</strong> ${state.paymentMethod ? state.paymentMethod.charAt(0).toUpperCase() + state.paymentMethod.slice(1) : 'Not selected'}</p>
+              <div class="ack-line">
+                <span>✓ Owner acknowledges reading and understanding this section</span>
+                <span>Initials: <img src="${initialsData.paymentTerms || ''}" class="initials-img" alt="Initials"></span>
+              </div>
+            </div>
+
+            <!-- Section 3: Timeline & Changes -->
+            <div class="section">
+              <h3>3. Timeline & Changes</h3>
+              <p><strong>Project Timeline:</strong> Work shall commence within 30 days of receiving first payment and building permits. Estimated completion is 4-8 weeks from commencement, weather permitting.</p>
+              <p><strong>Change Orders:</strong> Any modifications to the scope of work must be documented in writing and signed by both parties. Change orders may affect the Contract Sum and timeline.</p>
+              <p><strong>Weather Delays:</strong> Contractor shall not be liable for delays caused by weather conditions, material shortages, or other circumstances beyond reasonable control.</p>
+              <div class="ack-line">
+                <span>✓ Owner acknowledges reading and understanding this section</span>
+                <span>Initials: <img src="${initialsData.timeline || ''}" class="initials-img" alt="Initials"></span>
+              </div>
+            </div>
+
+            <!-- Section 4: Responsibilities -->
+            <div class="section">
+              <h3>4. Responsibilities</h3>
+              <p><strong>Contractor Responsibilities:</strong></p>
+              <ul>
+                <li>Provide all labor, materials, and equipment for metal building construction</li>
+                <li>Obtain necessary building permits</li>
+                <li>Maintain adequate insurance coverage</li>
+                <li>Complete work in a professional, workmanlike manner</li>
+              </ul>
+              <p><strong>Owner Responsibilities:</strong></p>
+              <ul>
+                <li>Provide clear access to the construction site</li>
+                <li>Ensure site is level and properly graded (unless concrete work is included)</li>
+                <li>Make timely payments per the payment schedule</li>
+                <li>Obtain any required easements or property approvals</li>
+              </ul>
+              <div class="ack-line">
+                <span>✓ Owner acknowledges reading and understanding this section</span>
+                <span>Initials: <img src="${initialsData.responsibilities || ''}" class="initials-img" alt="Initials"></span>
+              </div>
+            </div>
+
+            <!-- Section 5: Warranties & Insurance -->
+            <div class="section">
+              <h3>5. Warranties & Insurance</h3>
+              <p><strong>Workmanship Warranty:</strong> Contractor warrants all workmanship for a period of one (1) year from substantial completion.</p>
+              <p><strong>Manufacturer Warranties:</strong> All manufacturer warranties on materials and components shall transfer to Owner.</p>
+              <p><strong>Insurance:</strong> Contractor maintains general liability insurance and workers' compensation coverage. Owner is responsible for property insurance on the structure once construction begins.</p>
+              <p><strong>Limitation:</strong> Warranties do not cover damage from acts of nature, misuse, or failure to maintain the structure properly.</p>
+              <div class="ack-line">
+                <span>✓ Owner acknowledges reading and understanding this section</span>
+                <span>Initials: <img src="${initialsData.warranties || ''}" class="initials-img" alt="Initials"></span>
+              </div>
+            </div>
+
+            <!-- Section 6: Legal Provisions -->
+            <div class="section">
+              <h3>6. Legal Provisions</h3>
+              <p><strong>Governing Law:</strong> This Contract shall be governed by the laws of the State of Texas.</p>
+              <p><strong>Dispute Resolution:</strong> Any disputes shall first be addressed through good-faith negotiation. If unresolved, disputes shall be settled through binding arbitration in the county where the project is located.</p>
+              <p><strong>Entire Agreement:</strong> This Contract constitutes the entire agreement between parties and supersedes all prior negotiations and agreements.</p>
+              <p><strong>Severability:</strong> If any provision is found invalid, the remaining provisions shall continue in full force.</p>
+              <div class="ack-line">
+                <span>✓ Owner acknowledges reading and understanding this section</span>
+                <span>Initials: <img src="${initialsData.legalProvisions || ''}" class="initials-img" alt="Initials"></span>
+              </div>
+            </div>
+
+            <!-- Signature Page -->
+            <div class="signature-page">
+              <h3 style="text-align: center; font-size: 18px; color: #003057; margin-bottom: 20px;">7. Final Acknowledgment & Signatures</h3>
+
+              <p style="text-align: center; font-size: 11px; margin-bottom: 20px; color: #374151;">
+                By signing below, both parties acknowledge that they have read and understand ALL sections of this Contract,
+                have had the opportunity to consult with an attorney, agree to be bound by the terms and conditions herein,
+                and that the Contractor has personally walked the Owner through every section.
+              </p>
+
+              <div class="sig-section">
+                <h4>Owner Signature</h4>
+                <div class="sig-box">
+                  ${ownerSigData ? `<img src="${ownerSigData}" class="sig-img" alt="Owner Signature">` : '<span style="color: #9ca3af;">Signature</span>'}
+                </div>
+                <div class="sig-details">
+                  <p><strong>Printed Name:</strong> ${state.ownerTypedName || '_______________________'}</p>
+                  <p><strong>Date:</strong> ${today}</p>
+                </div>
+              </div>
+
+              <div class="sig-section">
+                <h4>Contractor Signature</h4>
+                <div class="sig-box">
+                  ${contractorSigData ? `<img src="${contractorSigData}" class="sig-img" alt="Contractor Signature">` : '<span style="color: #9ca3af;">Signature</span>'}
+                </div>
+                <div class="sig-details">
+                  <p><strong>Printed Name:</strong> ${state.contractorTypedName || '_______________________'}</p>
+                  <p><strong>Company:</strong> Burnett Customs, LLC</p>
+                  <p><strong>Date:</strong> ${today}</p>
+                </div>
+              </div>
+
+              <div class="final-section">
+                <p style="font-size: 14px; font-weight: bold; color: #166534;">✅ Contract Executed</p>
+                <p style="font-size: 11px; color: #166534;">This contract was signed digitally via Burnett Metal Building Estimator on ${today}.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Open print window
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
     }
 
     // Initialize initials pads when contract sections load
