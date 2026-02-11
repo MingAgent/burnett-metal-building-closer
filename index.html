@@ -3,20 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Burnett Customs - MSA Contract Signing</title>
+  <title>Burnett Customs - Metal Building Estimator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
     /* ==================== BRAND COLORS ====================
        Primary:   Dark Azure #003057, Vivid Azure #05c3de
-       Secondary: Dark Azure #002f57, Vivid Azure #04ceea, Dark Azure #01315b
+       Secondary: Green #22c55e
        Background: Black #000000, White #ffffff
     ========================================================= */
     :root {
       --primary-dark: #003057;
       --primary-vivid: #05c3de;
-      --secondary-dark: #002f57;
-      --secondary-vivid: #04ceea;
+      --accent-green: #22c55e;
       --secondary-darkest: #01315b;
       --bg-black: #000000;
       --bg-white: #ffffff;
@@ -93,25 +92,44 @@
     .btn-secondary {
       background: var(--primary-vivid);
       color: var(--primary-dark);
+      font-weight: 600;
       transition: background 0.2s;
     }
-    .btn-secondary:hover { background: var(--secondary-vivid); }
+    .btn-secondary:hover { background: #04b5cc; }
 
     .header-bar {
       background: var(--primary-dark);
       color: var(--bg-white);
     }
 
-    .accent-text { color: var(--primary-vivid); }
-    .accent-bg { background: var(--primary-vivid); }
+    .type-card {
+      border: 3px solid #e5e7eb;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .type-card:hover { border-color: var(--primary-vivid); transform: translateY(-2px); }
+    .type-card.selected { border-color: var(--primary-dark); background: #f0f9ff; }
+
+    .size-card {
+      border: 2px solid #e5e7eb;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .size-card:hover { border-color: var(--primary-vivid); }
+    .size-card.selected { border-color: var(--primary-dark); background: #f0f9ff; }
+
+    .eave-btn {
+      border: 2px solid #e5e7eb;
+      transition: all 0.2s;
+    }
+    .eave-btn:hover { border-color: var(--primary-vivid); }
+    .eave-btn.selected { border-color: var(--primary-dark); background: var(--primary-dark); color: white; }
 
     @media print {
       body { font-size: 9pt; line-height: 1.3; }
       .no-print { display: none !important; }
       .signature-pad, .initials-pad { border: 1px solid var(--bg-black) !important; }
     }
-
-    .highlight { background: #e0f7fa; border: 2px solid var(--primary-vivid); }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -129,14 +147,31 @@
 
     // ==================== APP STATE ====================
     const state = {
-      // Quote selection
-      quoteStep: 0,
-      level: null,
-      size: null,
-      addons: {},
-      quantities: {},
+      // Estimator flow
+      step: 0, // 0=type, 1=size, 2=eave, 3=doors, 4=addons, 5=summary, 6+=contract
+      buildingType: null, // 'poleBarn', 'carport', 'boltUp'
+      buildingSize: null,
+      eaveHeight: null,
 
-      // Contract signing flow
+      // Door configuration
+      doors: {
+        rollUp12: { qty: 0, placement: 'gabled' },
+        walkthrough: { qty: 0 }
+      },
+
+      // Add-ons
+      addons: {},
+
+      // Bolt-Up custom quote (when type is boltUp)
+      boltUpSpecs: {
+        customSize: '',
+        customEave: '',
+        doorPrefs: '',
+        addOnPrefs: '',
+        specialReqs: ''
+      },
+
+      // Contract signing flow (starts at step 6)
       contractStep: 0,
 
       // Customer info
@@ -145,30 +180,17 @@
         phone: '',
         email: '',
         address: '',
-        propertyAddress: '',
-        title: ''
+        propertyAddress: ''
       },
 
-      // Section acknowledgments
+      // 7 Contract sections acknowledgments
       sections: {
-        definitions: { checked: false, initialed: false },
-        changeOrders: { checked: false, initialed: false },
-        plans: { checked: false, initialed: false },
-        consumerProducts: { checked: false, initialed: false },
-        delays: { checked: false, initialed: false },
-        draws: { checked: false, initialed: false },
-        materialCosts: { checked: false, initialed: false },
-        contractorResp: { checked: false, initialed: false },
-        scope: { checked: false, initialed: false },
-        earlyOccupation: { checked: false, initialed: false },
+        projectOverview: { checked: false, initialed: false },
+        paymentTerms: { checked: false, initialed: false },
+        timeline: { checked: false, initialed: false },
+        responsibilities: { checked: false, initialed: false },
         warranties: { checked: false, initialed: false },
-        warrantyLimits: { checked: false, initialed: false },
-        insurance: { checked: false, initialed: false },
-        confidentiality: { checked: false, initialed: false },
-        defaultLiability: { checked: false, initialed: false },
-        arbitration: { checked: false, initialed: false },
-        juryWaiver: { checked: false, initialed: false },
-        rcla: { checked: false, initialed: false }
+        legalProvisions: { checked: false, initialed: false }
       },
 
       // Signatures
@@ -191,68 +213,86 @@
     const initialsPads = {};
 
     // ==================== DATA ====================
-    const PACKAGES = {
-      L1: { name: 'Level 1 - Basic', desc: 'Pole Barn Weld-Up', color: '#05c3de',
-        sizes: {
-          '30x40x10': { label: "30' × 40' × 10'", price: 18500 },
-          '40x50x12': { label: "40' × 50' × 12'", price: 32500 },
-          '40x60x14': { label: "40' × 60' × 14'", price: 44500 }
-        }},
-      L2: { name: 'Level 2 - Better', desc: 'Full I-Beam Weld-Up', color: '#003057',
-        sizes: {
-          '30x40x10': { label: "30' × 40' × 10'", price: 26500 },
-          '40x50x12': { label: "40' × 50' × 12'", price: 45500 },
-          '40x60x14': { label: "40' × 60' × 14'", price: 62500 }
-        }},
-      L3: { name: 'Level 3 - Best', desc: 'Bolt-Up Construction', color: '#01315b',
-        sizes: {
-          '30x40x10': { label: "30' × 40' × 10'", price: 38500 },
-          '40x50x12': { label: "40' × 50' × 12'", price: 65500 },
-          '40x60x14': { label: "40' × 60' × 14'", price: 89500 }
-        }}
+
+    // Building Types
+    const BUILDING_TYPES = {
+      poleBarn: {
+        name: 'Pole Barn',
+        desc: 'Weld-Up Construction',
+        color: '#003057',
+        icon: '🏗️',
+        hasFixedPricing: true
+      },
+      carport: {
+        name: 'Carport',
+        desc: 'Covered Structure',
+        color: '#22c55e',
+        icon: '🚗',
+        hasFixedPricing: true
+      },
+      boltUp: {
+        name: 'Bolt-Up Construction',
+        desc: 'Engineered Steel Building',
+        color: '#05c3de',
+        icon: '🏢',
+        hasFixedPricing: false,
+        note: 'Custom Quote Required'
+      }
     };
 
+    // 10 Building Sizes with "Starting at" prices
+    const BUILDING_SIZES = [
+      { id: '30x40', label: "30' × 40'", sqft: 1200, startingPrice: 26500 },
+      { id: '30x50', label: "30' × 50'", sqft: 1500, startingPrice: 31000 },
+      { id: '40x40', label: "40' × 40'", sqft: 1600, startingPrice: 33000 },
+      { id: '40x50', label: "40' × 50'", sqft: 2000, startingPrice: 39000 },
+      { id: '40x60', label: "40' × 60'", sqft: 2400, startingPrice: 45000 },
+      { id: '50x50', label: "50' × 50'", sqft: 2500, startingPrice: 47000 },
+      { id: '50x60', label: "50' × 60'", sqft: 3000, startingPrice: 54000 },
+      { id: '50x80', label: "50' × 80'", sqft: 4000, startingPrice: 68000 },
+      { id: '60x60', label: "60' × 60'", sqft: 3600, startingPrice: 62000 },
+      { id: '60x100', label: "60' × 100'", sqft: 6000, startingPrice: 95000 }
+    ];
+
+    // 5 Eave Heights
+    const EAVE_HEIGHTS = [
+      { id: '10', label: "10 ft", modifier: 0 },
+      { id: '12', label: "12 ft", modifier: 1500 },
+      { id: '14', label: "14 ft", modifier: 3500 },
+      { id: '16', label: "16 ft", modifier: 6000 },
+      { id: '20', label: "20 ft", modifier: 12000 }
+    ];
+
+    // Add-ons per specification
     const ADDONS = [
       { cat: 'Doors', items: [
-        { id: 'door_walk', name: "3070 Walk Door", price: 1045 },
-        { id: 'door_roll_10', name: "10'×10' Roll-Up", price: 2890 },
-        { id: 'door_roll_12', name: "12'×12' Roll-Up", price: 3630 },
-        { id: 'door_sect_12', name: "12'×12' Sectional", price: 4245 }
+        { id: 'door_roll_12', name: "12'×12' Roll-Up Door", price: 2890, note: 'Qty set in door config' },
+        { id: 'door_walk', name: "Walkthrough Door", price: 1045, note: 'Qty set in door config' }
       ]},
       { cat: 'Windows', items: [
         { id: 'win_3x3', name: "3'×3' Fixed Window", price: 525 },
         { id: 'win_4x4', name: "4'×4' Slider Window", price: 695 }
       ]},
+      { cat: 'Insulation', items: [
+        { id: 'wall_insulation', name: "Wall Insulation", price: 2500 },
+        { id: 'roof_insulation', name: "Roof Insulation", price: 2000 }
+      ]},
       { cat: 'Options', items: [
         { id: 'gutters', name: "Gutters & Downspouts", price: 1890 },
-        { id: 'insulation', name: "Wall & Roof Insulation", price: 4500 },
-        { id: 'base_trim', name: "Base Trim (Rat Guard)", price: 895 },
-        { id: 'apron', name: "Concrete Apron 10'×20'", price: 2030 }
+        { id: 'concrete_slab', name: "Concrete Slab (4\" w/ rebar)", price: 0, perSqFt: 8, note: 'Price based on building size' }
       ]}
     ];
 
-    // Contract sections configuration
+    // 7 Contract sections (consolidated from 19)
     const CONTRACT_SECTIONS = [
       { id: 'info', title: 'Customer Information', icon: '👤', requiresAck: false },
-      { id: 'definitions', title: 'Definitions', icon: '📖', requiresAck: true },
-      { id: 'changeOrders', title: 'Change Orders', icon: '📝', requiresAck: true },
-      { id: 'plans', title: 'Plans', icon: '📐', requiresAck: true },
-      { id: 'consumerProducts', title: 'Consumer Products', icon: '🏭', requiresAck: true },
-      { id: 'delays', title: 'Delays & Force Majeure', icon: '⏰', requiresAck: true },
-      { id: 'draws', title: 'Draws & Payment Terms', icon: '💰', requiresAck: true },
-      { id: 'materialCosts', title: 'Material Costs', icon: '📦', requiresAck: true },
-      { id: 'contractorResp', title: 'Contractor Responsibilities', icon: '🔧', requiresAck: true },
-      { id: 'scope', title: 'Scope of Contract', icon: '📏', requiresAck: true },
-      { id: 'earlyOccupation', title: 'Early Occupation', icon: '🏠', requiresAck: true },
-      { id: 'warranties', title: 'Warranties', icon: '🛡️', requiresAck: true },
-      { id: 'warrantyLimits', title: 'Warranty Limitations', icon: '⚠️', requiresAck: true },
-      { id: 'insurance', title: 'Insurance', icon: '📋', requiresAck: true },
-      { id: 'confidentiality', title: 'Confidentiality', icon: '🔒', requiresAck: true },
-      { id: 'defaultLiability', title: 'Default & Liability', icon: '⚖️', requiresAck: true },
-      { id: 'arbitration', title: 'Binding Arbitration', icon: '🏛️', requiresAck: true },
-      { id: 'juryWaiver', title: 'Jury Trial Waiver', icon: '📜', requiresAck: true },
-      { id: 'rcla', title: 'RCLA Notice', icon: '🔔', requiresAck: true },
-      { id: 'signatures', title: 'Signatures & Payment', icon: '✍️', requiresAck: false }
+      { id: 'projectOverview', title: '1. Project Overview', icon: '📖', requiresAck: true },
+      { id: 'paymentTerms', title: '2. Payment Terms', icon: '💰', requiresAck: true },
+      { id: 'timeline', title: '3. Timeline & Changes', icon: '📅', requiresAck: true },
+      { id: 'responsibilities', title: '4. Responsibilities', icon: '🔧', requiresAck: true },
+      { id: 'warranties', title: '5. Warranties & Insurance', icon: '🛡️', requiresAck: true },
+      { id: 'legalProvisions', title: '6. Legal Provisions', icon: '⚖️', requiresAck: true },
+      { id: 'signatures', title: '7. Final Acknowledgment', icon: '✍️', requiresAck: false }
     ];
 
     // ==================== SIGNATURE/INITIALS PAD ====================
@@ -298,198 +338,598 @@
         this.ctx.stroke();
         this.ctx.beginPath();
         this.ctx.moveTo(pos.x, pos.y);
-        this.canvas.classList.add('signed');
-        if (this.onChange) this.onChange(true);
       }
 
-      stop() { this.drawing = false; }
+      stop() {
+        if (this.drawing) {
+          this.drawing = false;
+          if (this.onChange) this.onChange(true);
+        }
+      }
+
       clear() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.canvas.classList.remove('signed');
         if (this.onChange) this.onChange(false);
       }
-      isEmpty() { return !this.canvas.classList.contains('signed'); }
-      toDataURL() { return this.canvas.toDataURL(); }
+
+      isEmpty() {
+        const data = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] !== 0) return false;
+        }
+        return true;
+      }
+
+      getDataURL() {
+        return this.canvas.toDataURL('image/png');
+      }
     }
 
-    // ==================== HELPERS ====================
-    function getTotal() {
-      let total = 0;
-      if (state.level && state.size) {
-        total = PACKAGES[state.level].sizes[state.size].price;
-      }
-      Object.entries(state.addons).forEach(([id, selected]) => {
-        if (selected) {
-          const qty = state.quantities[id] || 1;
-          ADDONS.forEach(cat => {
-            const item = cat.items.find(i => i.id === id);
-            if (item) total += item.price * qty;
-          });
-        }
+    // ==================== HELPER FUNCTIONS ====================
+    function formatCurrency(num) {
+      return '$' + num.toLocaleString();
+    }
+
+    function getSelectedSize() {
+      return BUILDING_SIZES.find(s => s.id === state.buildingSize);
+    }
+
+    function getSelectedEave() {
+      return EAVE_HEIGHTS.find(e => e.id === state.eaveHeight);
+    }
+
+    function calculateTotal() {
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      if (!size || !eave) return 0;
+
+      let total = size.startingPrice + eave.modifier;
+
+      // Add doors
+      total += state.doors.rollUp12.qty * 2890;
+      total += state.doors.walkthrough.qty * 1045;
+
+      // Add selected add-ons
+      ADDONS.forEach(cat => {
+        cat.items.forEach(item => {
+          if (state.addons[item.id]) {
+            if (item.perSqFt) {
+              total += item.perSqFt * size.sqft;
+            } else if (!item.id.startsWith('door_')) {
+              const qty = state.addons[item.id + '_qty'] || 1;
+              total += item.price * qty;
+            }
+          }
+        });
       });
+
       return total;
     }
 
-    function getDeposit() { return Math.round(getTotal() * 0.50); }
-    function getMidPayment() { return Math.round(getTotal() * 0.25); }
-    function getFinalPayment() { return Math.round(getTotal() * 0.25); }
-
-    function canProceedFromSection(sectionId) {
-      const section = CONTRACT_SECTIONS.find(s => s.id === sectionId);
-
-      if (sectionId === 'info') {
-        return state.customer.name && state.customer.phone &&
-               state.customer.email && state.customer.address &&
-               state.customer.propertyAddress;
-      }
-
-      if (sectionId === 'signatures') {
-        return state.ownerTypedName && state.contractorTypedName &&
-               state.ownerSigned && state.contractorSigned && state.paymentMethod;
-      }
-
-      if (section && section.requiresAck) {
-        const ack = state.sections[sectionId];
-        return ack && ack.checked && ack.initialed;
-      }
-
-      return true;
-    }
-
-    // ==================== RENDER ====================
+    // ==================== RENDER FUNCTIONS ====================
     function render() {
       const app = document.getElementById('app');
-      const total = getTotal();
 
-      if (!state.level || !state.size || state.quoteStep < 3) {
-        renderQuoteBuilder(app, total);
-        return;
+      // Determine what to render based on step
+      if (state.step === 0) {
+        app.innerHTML = renderBuildingType();
+      } else if (state.buildingType === 'boltUp') {
+        app.innerHTML = renderBoltUpForm();
+      } else if (state.step === 1) {
+        app.innerHTML = renderBuildingSize();
+      } else if (state.step === 2) {
+        app.innerHTML = renderEaveHeight();
+      } else if (state.step === 3) {
+        app.innerHTML = renderDoorConfig();
+      } else if (state.step === 4) {
+        app.innerHTML = renderAddons();
+      } else if (state.step === 5) {
+        app.innerHTML = renderSummary();
+      } else {
+        app.innerHTML = renderContract();
       }
-
-      renderContractFlow(app, total);
     }
 
-    function renderQuoteBuilder(app, total) {
-      let html = `
-        <header class="header-bar text-white p-4 shadow-lg">
-          <div class="max-w-3xl mx-auto flex justify-between items-center">
+    // Step 0: Building Type Selection
+    function renderBuildingType() {
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
             <div>
               <h1 class="text-xl font-bold">Burnett Customs</h1>
-              <p class="text-[#05c3de] text-sm">Metal Building Sales</p>
-            </div>
-            <div class="text-right">
-              <div class="text-2xl font-bold text-yellow-300">$${total.toLocaleString()}</div>
-              <div class="text-[#05c3de] text-xs">Total</div>
+              <p class="text-[#05c3de] text-sm">Metal Building Estimator</p>
             </div>
           </div>
         </header>
-        <main class="max-w-3xl mx-auto p-4">
-      `;
 
-      // Quote Step 0: Select Level
-      if (state.quoteStep === 0) {
-        html += `<h2 class="text-2xl font-bold text-center mb-6">Select Building Level</h2><div class="grid gap-4">`;
-        Object.entries(PACKAGES).forEach(([key, pkg]) => {
-          const selected = state.level === key;
-          html += `
-            <div onclick="selectLevel('${key}')" class="cursor-pointer p-5 rounded-xl border-4 transition-all ${selected ? 'border-yellow-400 text-white' : 'border-gray-200 bg-white hover:border-gray-300'}" style="${selected ? `background:${pkg.color}` : ''}">
-              <div class="text-lg font-bold">${pkg.name}</div>
-              <div class="text-xl font-semibold" style="${selected ? 'color:#fef08a' : `color:${pkg.color}`}">${pkg.desc}</div>
-              ${selected ? '<div class="mt-2 text-yellow-200">✓ Selected</div>' : ''}
-            </div>`;
-        });
-        html += `</div>`;
-      }
+        <main class="max-w-4xl mx-auto p-4">
+          <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Select Building Type</h2>
+            <p class="text-gray-600">Choose the type of metal building for your project</p>
+          </div>
 
-      // Quote Step 1: Select Size
-      if (state.quoteStep === 1 && state.level) {
-        const pkg = PACKAGES[state.level];
-        html += `<h2 class="text-2xl font-bold text-center mb-2">Select Building Size</h2>
-          <p class="text-center text-gray-500 mb-6">${pkg.name}</p><div class="grid gap-4">`;
-        Object.entries(pkg.sizes).forEach(([key, size]) => {
-          const selected = state.size === key;
-          html += `
-            <div onclick="selectSize('${key}')" class="cursor-pointer p-5 rounded-xl border-4 transition-all ${selected ? 'border-yellow-400 text-white' : 'border-gray-200 bg-white hover:border-gray-300'}" style="${selected ? `background:${pkg.color}` : ''}">
-              <div class="flex justify-between items-center">
-                <div class="text-xl font-bold">${size.label}</div>
-                <div class="text-2xl font-bold" style="${selected ? 'color:#fef08a' : 'color:#22c55e'}">$${size.price.toLocaleString()}</div>
+          <div class="grid gap-4 md:grid-cols-3">
+            ${Object.entries(BUILDING_TYPES).map(([key, type]) => `
+              <div onclick="selectBuildingType('${key}')"
+                   class="type-card bg-white rounded-xl p-6 text-center ${state.buildingType === key ? 'selected' : ''}">
+                <div class="text-4xl mb-3">${type.icon}</div>
+                <h3 class="text-xl font-bold" style="color: ${type.color}">${type.name}</h3>
+                <p class="text-gray-600 text-sm mt-1">${type.desc}</p>
+                ${type.hasFixedPricing ?
+                  `<p class="text-[#05c3de] font-semibold mt-3">Starting at $26,500</p>` :
+                  `<p class="text-orange-500 font-semibold mt-3">⚠️ ${type.note}</p>`
+                }
               </div>
-              ${selected ? '<div class="mt-2 text-yellow-200">✓ Selected</div>' : ''}
-            </div>`;
-        });
-        html += `</div>`;
-      }
+            `).join('')}
+          </div>
 
-      // Quote Step 2: Add-ons
-      if (state.quoteStep === 2) {
-        html += `<h2 class="text-2xl font-bold text-center mb-6">Select Add-Ons</h2>`;
-        ADDONS.forEach(cat => {
-          html += `<h3 class="font-bold text-lg mt-4 mb-2">${cat.cat}</h3><div class="grid gap-2">`;
-          cat.items.forEach(item => {
-            const selected = state.addons[item.id];
-            const qty = state.quantities[item.id] || 1;
-            html += `
-              <div class="flex items-center justify-between p-3 rounded-lg border-2 ${selected ? 'border-[#05c3de] bg-[#e0f7fa]' : 'border-gray-200 bg-white'}">
-                <div>
-                  <div class="font-semibold">${item.name}</div>
-                  <div class="text-green-600 font-bold">$${item.price.toLocaleString()}</div>
-                </div>
-                <div class="flex items-center gap-2">
-                  ${selected ? `
-                    <button onclick="updateQty('${item.id}', -1)" class="w-8 h-8 rounded bg-gray-200 font-bold">-</button>
-                    <span class="w-8 text-center font-semibold">${qty}</span>
-                    <button onclick="updateQty('${item.id}', 1)" class="w-8 h-8 rounded bg-gray-200 font-bold">+</button>
-                  ` : ''}
-                  <button onclick="toggleAddon('${item.id}')" class="w-12 h-12 rounded-full text-xl font-bold" style="background: ${selected ? '#05c3de' : '#f3f4f6'}; color: ${selected ? 'white' : '#9ca3af'}">
-                    ${selected ? '✓' : '+'}
-                  </button>
-                </div>
-              </div>`;
-          });
-          html += `</div>`;
-        });
-      }
-
-      // Navigation
-      const canNext = (state.quoteStep === 0 && state.level) || (state.quoteStep === 1 && state.size) || state.quoteStep === 2;
-      html += `
-        <div class="flex justify-between mt-6">
-          <button onclick="prevQuoteStep()" ${state.quoteStep === 0 ? 'disabled' : ''} class="py-3 px-6 rounded-xl font-semibold ${state.quoteStep === 0 ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}">← Back</button>
-          <button onclick="nextQuoteStep()" ${!canNext ? 'disabled' : ''} class="py-3 px-8 rounded-xl font-semibold ${canNext ? 'btn-primary text-white' : 'bg-gray-200 text-gray-400'}">
-            ${state.quoteStep === 2 ? 'Continue to Contract →' : 'Next →'}
-          </button>
-        </div>
+          <div class="mt-8 flex justify-end">
+            <button onclick="nextStep()" ${!state.buildingType ? 'disabled' : ''}
+                    class="py-3 px-8 rounded-xl font-semibold ${state.buildingType ? 'btn-primary' : 'bg-gray-200 text-gray-400'}">
+              Next →
+            </button>
+          </div>
+        </main>
       `;
-
-      html += `</main>`;
-      app.innerHTML = html;
     }
 
-    function renderContractFlow(app, total) {
-      const pkg = PACKAGES[state.level];
-      const size = pkg.sizes[state.size];
-      const today = new Date().toLocaleDateString();
-      const currentSection = CONTRACT_SECTIONS[state.contractStep];
+    // Bolt-Up Custom Quote Form
+    function renderBoltUpForm() {
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-bold">Burnett Customs</h1>
+              <p class="text-[#05c3de] text-sm">Bolt-Up Construction - Custom Quote</p>
+            </div>
+          </div>
+        </header>
 
-      let html = `
-        <header class="header-bar text-white p-3 shadow-lg no-print">
-          <div class="max-w-4xl mx-auto">
-            <div class="flex justify-between items-center mb-3">
+        <main class="max-w-2xl mx-auto p-4">
+          <div class="bg-orange-50 border-2 border-orange-400 rounded-xl p-4 mb-6">
+            <p class="text-orange-800 font-semibold">⚠️ Bolt-Up Construction requires a custom quote</p>
+            <p class="text-orange-700 text-sm mt-1">Pricing varies based on wind zone, snow zone, and engineering requirements. Please provide your specifications below.</p>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 shadow-lg">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Request Custom Quote</h2>
+
+            <div class="space-y-4">
               <div>
-                <h1 class="text-lg font-bold">Master Service Agreement</h1>
-                <p class="text-[#05c3de] text-xs">${pkg.name} - ${size.label}</p>
+                <label class="block font-semibold text-gray-700 mb-1">Your Name *</label>
+                <input type="text" value="${state.customer.name}" oninput="updateBoltUpField('name', this.value)"
+                       class="border-2 rounded-lg p-3 w-full" placeholder="Full name">
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Phone *</label>
+                <input type="tel" value="${state.customer.phone}" oninput="updateBoltUpField('phone', this.value)"
+                       class="border-2 rounded-lg p-3 w-full" placeholder="(555) 555-5555">
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Email *</label>
+                <input type="email" value="${state.customer.email}" oninput="updateBoltUpField('email', this.value)"
+                       class="border-2 rounded-lg p-3 w-full" placeholder="you@email.com">
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Desired Building Size</label>
+                <input type="text" value="${state.boltUpSpecs.customSize}" oninput="updateBoltUpSpec('customSize', this.value)"
+                       class="border-2 rounded-lg p-3 w-full" placeholder="e.g., 60' x 80' or custom dimensions">
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Desired Eave Height</label>
+                <input type="text" value="${state.boltUpSpecs.customEave}" oninput="updateBoltUpSpec('customEave', this.value)"
+                       class="border-2 rounded-lg p-3 w-full" placeholder="e.g., 16 ft, 20 ft, etc.">
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Door Preferences</label>
+                <textarea value="${state.boltUpSpecs.doorPrefs}" oninput="updateBoltUpSpec('doorPrefs', this.value)"
+                          class="border-2 rounded-lg p-3 w-full" rows="2"
+                          placeholder="e.g., Two 14x14 roll-up doors on front, one walk door on side">${state.boltUpSpecs.doorPrefs}</textarea>
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Add-On Preferences</label>
+                <textarea value="${state.boltUpSpecs.addOnPrefs}" oninput="updateBoltUpSpec('addOnPrefs', this.value)"
+                          class="border-2 rounded-lg p-3 w-full" rows="2"
+                          placeholder="e.g., Insulation, gutters, windows, concrete slab">${state.boltUpSpecs.addOnPrefs}</textarea>
+              </div>
+
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Special Requirements / Notes</label>
+                <textarea value="${state.boltUpSpecs.specialReqs}" oninput="updateBoltUpSpec('specialReqs', this.value)"
+                          class="border-2 rounded-lg p-3 w-full" rows="3"
+                          placeholder="Any other specifications, site conditions, or requirements...">${state.boltUpSpecs.specialReqs}</textarea>
+              </div>
+            </div>
+
+            <div class="mt-6 flex gap-4">
+              <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
+                ← Back
+              </button>
+              <button onclick="submitBoltUpQuote()"
+                      class="flex-1 py-3 px-6 rounded-xl font-semibold btn-primary">
+                📧 Request Quote
+              </button>
+            </div>
+          </div>
+        </main>
+      `;
+    }
+
+    // Step 1: Building Size Selection
+    function renderBuildingSize() {
+      const type = BUILDING_TYPES[state.buildingType];
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-bold">Burnett Customs</h1>
+              <p class="text-[#05c3de] text-sm">${type.name}</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold">${formatCurrency(calculateTotal())}</div>
+              <div class="text-[#05c3de] text-xs">Estimated Total</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="max-w-4xl mx-auto p-4">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Select Building Size</h2>
+            <p class="text-gray-600">Standard 3-on-12 roof pitch on all buildings</p>
+          </div>
+
+          <div class="grid gap-3 grid-cols-2 md:grid-cols-5">
+            ${BUILDING_SIZES.map(size => `
+              <div onclick="selectSize('${size.id}')"
+                   class="size-card bg-white rounded-lg p-4 text-center ${state.buildingSize === size.id ? 'selected' : ''}">
+                <div class="font-bold text-lg text-gray-800">${size.label}</div>
+                <div class="text-gray-500 text-sm">${size.sqft.toLocaleString()} sq ft</div>
+                <div class="text-[#05c3de] font-semibold text-sm mt-2">Starting at</div>
+                <div class="text-[#003057] font-bold">${formatCurrency(size.startingPrice)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="mt-6 flex justify-between">
+            <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
+              ← Back
+            </button>
+            <button onclick="nextStep()" ${!state.buildingSize ? 'disabled' : ''}
+                    class="py-3 px-8 rounded-xl font-semibold ${state.buildingSize ? 'btn-primary' : 'bg-gray-200 text-gray-400'}">
+              Next →
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    // Step 2: Eave Height Selection
+    function renderEaveHeight() {
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-bold">Burnett Customs</h1>
+              <p class="text-[#05c3de] text-sm">${type.name} - ${size.label}</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold">${formatCurrency(calculateTotal())}</div>
+              <div class="text-[#05c3de] text-xs">Estimated Total</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="max-w-4xl mx-auto p-4">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Select Eave Height</h2>
+            <p class="text-gray-600">Choose the wall height for your building</p>
+          </div>
+
+          <div class="flex flex-wrap justify-center gap-4">
+            ${EAVE_HEIGHTS.map(eave => `
+              <button onclick="selectEave('${eave.id}')"
+                      class="eave-btn bg-white rounded-xl p-6 text-center min-w-[120px] ${state.eaveHeight === eave.id ? 'selected' : ''}">
+                <div class="text-3xl font-bold">${eave.label}</div>
+                <div class="text-sm mt-2 ${state.eaveHeight === eave.id ? 'text-white' : 'text-gray-500'}">
+                  ${eave.modifier === 0 ? 'Base price' : '+' + formatCurrency(eave.modifier)}
+                </div>
+              </button>
+            `).join('')}
+          </div>
+
+          <div class="mt-8 flex justify-between">
+            <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
+              ← Back
+            </button>
+            <button onclick="nextStep()" ${!state.eaveHeight ? 'disabled' : ''}
+                    class="py-3 px-8 rounded-xl font-semibold ${state.eaveHeight ? 'btn-primary' : 'bg-gray-200 text-gray-400'}">
+              Next →
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    // Step 3: Door Configuration
+    function renderDoorConfig() {
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-bold">Burnett Customs</h1>
+              <p class="text-[#05c3de] text-sm">${type.name} - ${size.label} × ${eave.label}</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold">${formatCurrency(calculateTotal())}</div>
+              <div class="text-[#05c3de] text-xs">Estimated Total</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="max-w-4xl mx-auto p-4">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Door Configuration</h2>
+            <p class="text-gray-600">Configure doors for your building</p>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 shadow-lg space-y-6">
+            <!-- Roll-Up Doors -->
+            <div class="border-b pb-6">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-bold text-lg">12' × 12' Roll-Up Doors</h3>
+                  <p class="text-gray-500 text-sm">$2,890 each</p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <button onclick="adjustDoor('rollUp12', -1)" class="w-10 h-10 rounded-full bg-gray-200 font-bold text-xl">−</button>
+                  <span class="text-2xl font-bold w-8 text-center">${state.doors.rollUp12.qty}</span>
+                  <button onclick="adjustDoor('rollUp12', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-white font-bold text-xl">+</button>
+                </div>
+              </div>
+              ${state.doors.rollUp12.qty > 0 ? `
+                <div class="bg-gray-50 rounded-lg p-4">
+                  <p class="font-semibold text-sm mb-2">Placement:</p>
+                  <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="rollUpPlacement" value="gabled"
+                             ${state.doors.rollUp12.placement === 'gabled' ? 'checked' : ''}
+                             onchange="updateDoorPlacement('rollUp12', 'gabled')">
+                      <span>Gabled End</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="rollUpPlacement" value="eave"
+                             ${state.doors.rollUp12.placement === 'eave' ? 'checked' : ''}
+                             onchange="updateDoorPlacement('rollUp12', 'eave')">
+                      <span>Eave Side</span>
+                    </label>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-2">⚠️ Minimum 2 ft from wall edge required</p>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Walkthrough Doors -->
+            <div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="font-bold text-lg">Walkthrough Doors</h3>
+                  <p class="text-gray-500 text-sm">$1,045 each</p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <button onclick="adjustDoor('walkthrough', -1)" class="w-10 h-10 rounded-full bg-gray-200 font-bold text-xl">−</button>
+                  <span class="text-2xl font-bold w-8 text-center">${state.doors.walkthrough.qty}</span>
+                  <button onclick="adjustDoor('walkthrough', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-white font-bold text-xl">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-between">
+            <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
+              ← Back
+            </button>
+            <button onclick="nextStep()" class="py-3 px-8 rounded-xl font-semibold btn-primary">
+              Next →
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    // Step 4: Add-ons
+    function renderAddons() {
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-bold">Burnett Customs</h1>
+              <p class="text-[#05c3de] text-sm">${type.name} - ${size.label} × ${eave.label}</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold">${formatCurrency(calculateTotal())}</div>
+              <div class="text-[#05c3de] text-xs">Estimated Total</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="max-w-4xl mx-auto p-4">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Add-Ons & Options</h2>
+            <p class="text-gray-600">Customize your building with additional features</p>
+          </div>
+
+          <div class="space-y-6">
+            ${ADDONS.filter(cat => cat.cat !== 'Doors').map(category => `
+              <div class="bg-white rounded-xl p-4 shadow">
+                <h3 class="font-bold text-lg mb-3 text-[#003057]">${category.cat}</h3>
+                <div class="space-y-3">
+                  ${category.items.filter(item => !item.id.startsWith('door_')).map(item => {
+                    const selected = state.addons[item.id];
+                    let priceDisplay = formatCurrency(item.price);
+                    if (item.perSqFt) {
+                      priceDisplay = formatCurrency(item.perSqFt * size.sqft) + ` ($${item.perSqFt}/sq ft)`;
+                    }
+                    return `
+                      <div class="flex items-center justify-between p-3 rounded-lg border-2 ${selected ? 'border-[#05c3de] bg-[#e0f7fa]' : 'border-gray-200 bg-white'}">
+                        <div class="flex-1">
+                          <span class="font-semibold">${item.name}</span>
+                          ${item.note ? `<span class="text-gray-500 text-sm ml-2">(${item.note})</span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-4">
+                          <span class="font-bold text-[#003057]">${priceDisplay}</span>
+                          <button onclick="toggleAddon('${item.id}')"
+                                  class="w-10 h-10 rounded-full text-lg font-bold"
+                                  style="background: ${selected ? '#05c3de' : '#f3f4f6'}; color: ${selected ? 'white' : '#9ca3af'}">
+                            ${selected ? '✓' : '+'}
+                          </button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="mt-6 flex justify-between">
+            <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
+              ← Back
+            </button>
+            <button onclick="nextStep()" class="py-3 px-8 rounded-xl font-semibold btn-primary">
+              View Summary →
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    // Step 5: Summary
+    function renderSummary() {
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      const total = calculateTotal();
+
+      let lineItems = [];
+      lineItems.push({ name: `${type.name} - ${size.label} × ${eave.label}`, price: size.startingPrice + eave.modifier });
+
+      if (state.doors.rollUp12.qty > 0) {
+        lineItems.push({ name: `12'×12' Roll-Up Door × ${state.doors.rollUp12.qty}`, price: state.doors.rollUp12.qty * 2890 });
+      }
+      if (state.doors.walkthrough.qty > 0) {
+        lineItems.push({ name: `Walkthrough Door × ${state.doors.walkthrough.qty}`, price: state.doors.walkthrough.qty * 1045 });
+      }
+
+      ADDONS.forEach(cat => {
+        cat.items.forEach(item => {
+          if (state.addons[item.id] && !item.id.startsWith('door_')) {
+            let price = item.perSqFt ? item.perSqFt * size.sqft : item.price;
+            lineItems.push({ name: item.name, price });
+          }
+        });
+      });
+
+      return `
+        <header class="header-bar p-4 shadow-lg">
+          <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-bold">Burnett Customs</h1>
+              <p class="text-[#05c3de] text-sm">Estimate Summary</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold">${formatCurrency(total)}</div>
+              <div class="text-[#05c3de] text-xs">Estimated Total</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="max-w-2xl mx-auto p-4">
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="bg-[#003057] text-white p-4">
+              <h2 class="text-xl font-bold">Your Building Estimate</h2>
+              <p class="text-[#05c3de] text-sm">${type.name} - ${size.label} × ${eave.label}</p>
+            </div>
+
+            <div class="p-4">
+              <table class="w-full">
+                <tbody>
+                  ${lineItems.map(item => `
+                    <tr class="border-b">
+                      <td class="py-3">${item.name}</td>
+                      <td class="py-3 text-right font-semibold">${formatCurrency(item.price)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+                <tfoot>
+                  <tr class="bg-gray-50">
+                    <td class="py-4 font-bold text-lg">Estimated Total</td>
+                    <td class="py-4 text-right font-bold text-xl text-[#003057]">${formatCurrency(total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="bg-[#e0f7fa] p-4 border-t">
+              <p class="text-sm text-gray-700">
+                <strong>Note:</strong> This is an estimate. Final pricing will be confirmed in the contract.
+                Prices shown are "starting at" prices and may vary based on site conditions and final specifications.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-between">
+            <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
+              ← Back
+            </button>
+            <button onclick="proceedToContract()" class="py-3 px-8 rounded-xl font-semibold btn-primary">
+              Proceed to Contract →
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    // Contract Flow (Step 6+)
+    function renderContract() {
+      const section = CONTRACT_SECTIONS[state.contractStep];
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      const total = calculateTotal();
+
+      return `
+        <header class="header-bar p-3 shadow-lg no-print">
+          <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <h1 class="text-lg font-bold">Burnett Customs</h1>
+                <p class="text-[#05c3de] text-xs">${type.name} - ${size.label} × ${eave.label}</p>
               </div>
               <div class="text-right">
-                <div class="text-xl font-bold text-yellow-300">$${total.toLocaleString()}</div>
+                <div class="text-lg font-bold">${formatCurrency(total)}</div>
                 <div class="text-[#05c3de] text-xs">Contract Sum</div>
               </div>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="flex items-center gap-1 overflow-x-auto pb-2">
-              ${CONTRACT_SECTIONS.map((section, i) => `
+            <!-- Progress indicator -->
+            <div class="flex items-center justify-center gap-1 mt-2 overflow-x-auto pb-1">
+              ${CONTRACT_SECTIONS.map((s, i) => `
                 <div class="flex items-center">
-                  <div class="progress-step ${i < state.contractStep ? 'completed' : i === state.contractStep ? 'current' : 'pending'}" title="${section.title}">
+                  <div class="progress-step ${i < state.contractStep ? 'completed' : i === state.contractStep ? 'current' : 'pending'}">
                     ${i < state.contractStep ? '✓' : i + 1}
                   </div>
                   ${i < CONTRACT_SECTIONS.length - 1 ? `<div class="w-3 h-0.5" style="background: ${i < state.contractStep ? '#05c3de' : '#003057'}"></div>` : ''}
@@ -499,1082 +939,839 @@
           </div>
         </header>
 
-        <main class="max-w-4xl mx-auto p-4">
-          <div class="bg-white rounded-xl shadow-lg p-5 mb-4">
-            <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
-              <span class="text-2xl">${currentSection.icon}</span>
-              Step ${state.contractStep + 1} of ${CONTRACT_SECTIONS.length}: ${currentSection.title}
-            </h2>
-            <p class="text-gray-500 text-sm mb-4">Please review and complete this section to continue.</p>
-      `;
+        <main class="max-w-2xl mx-auto p-4">
+          ${renderContractSection()}
 
-      // Render current section content
-      html += renderSectionContent(currentSection.id, total, today, pkg, size);
-
-      // Navigation
-      const canProceed = canProceedFromSection(currentSection.id);
-      html += `
-          </div>
-
-          <div class="flex justify-between no-print">
-            <button onclick="prevContractStep()" ${state.contractStep === 0 ? 'disabled' : ''} class="py-3 px-5 rounded-xl font-semibold ${state.contractStep === 0 ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}">
-              ← Previous
+          <div class="mt-6 flex justify-between items-center no-print">
+            <button onclick="prevContractStep()" ${state.contractStep === 0 ? 'disabled' : ''}
+                    class="py-3 px-6 rounded-xl font-semibold ${state.contractStep === 0 ? 'bg-gray-100 text-gray-400' : 'border-2 border-gray-300 text-gray-600 hover:bg-gray-50'}">
+              ← Back
             </button>
+
+            <div class="text-center">
+              <p id="sectionWarning" class="text-sm text-red-500 mb-1"></p>
+            </div>
+
             ${state.contractStep < CONTRACT_SECTIONS.length - 1 ? `
-              <button id="nextSectionBtn" onclick="nextContractStep()" ${!canProceed ? 'disabled' : ''} class="py-3 px-6 rounded-xl font-semibold ${canProceed ? 'btn-primary text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}">
+              <button id="nextSectionBtn" onclick="nextContractStep()"
+                      class="py-3 px-6 rounded-xl font-semibold btn-primary">
                 Next Section →
               </button>
             ` : `
-              <button onclick="sendContract()" ${!canProceed || state.sending ? 'disabled' : ''} class="py-3 px-6 rounded-xl font-semibold ${canProceed && !state.sending ? 'btn-primary text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}">
-                ${state.sending ? '📧 Sending...' : '📧 Complete & Send Contract'}
+              <button onclick="sendContract()" ${state.sending ? 'disabled' : ''}
+                      class="py-3 px-6 rounded-xl font-semibold btn-primary">
+                ${state.sending ? 'Sending...' : '📧 Send Contract'}
               </button>
             `}
           </div>
-
-          <p id="validationWarning" class="text-center text-amber-600 text-sm mt-3 no-print" style="${canProceed ? 'display:none' : ''}">⚠️ Please complete all required items in this section to continue</p>
-          ${state.sendError ? `<p class="text-center text-red-600 text-sm mt-3 no-print">❌ ${state.sendError}</p>` : ''}
-          ${state.sent ? `
-            <div class="mt-4 p-4 bg-[#e0f7fa] border border-green-300 rounded-xl text-center">
-              <p class="text-green-700 font-bold text-lg">✅ Contract Executed Successfully!</p>
-              <p class="text-green-600">Copies sent to:</p>
-              <p class="text-green-700">• ${state.customer.email}</p>
-              <p class="text-green-700">• bobby@burnettcustoms.net</p>
-              <button onclick="window.print()" class="mt-3 py-2 px-6 btn-primary rounded-lg font-semibold">🖨️ Print Copy</button>
-              <button onclick="resetApp()" class="mt-3 ml-2 py-2 px-6 bg-gray-200 rounded-lg font-semibold">Start New Contract</button>
-            </div>
-          ` : ''}
         </main>
       `;
-
-      app.innerHTML = html;
-
-      // Initialize pads after render
-      setTimeout(() => initializePads(currentSection.id), 50);
     }
 
-    function renderSectionContent(sectionId, total, today, pkg, size) {
-      const deposit = getDeposit();
-      const ack = state.sections[sectionId];
-      const isComplete = ack && ack.checked && ack.initialed;
+    function renderContractSection() {
+      const section = CONTRACT_SECTIONS[state.contractStep];
 
-      switch(sectionId) {
-        case 'info':
-          return renderCustomerInfo(total, pkg, size);
-        case 'definitions':
-          return renderDefinitions(today, isComplete);
-        case 'changeOrders':
-          return renderChangeOrders(isComplete);
-        case 'plans':
-          return renderPlans(isComplete);
-        case 'consumerProducts':
-          return renderConsumerProducts(isComplete);
-        case 'delays':
-          return renderDelays(isComplete);
-        case 'draws':
-          return renderDraws(total, deposit, isComplete);
-        case 'materialCosts':
-          return renderMaterialCosts(isComplete);
-        case 'contractorResp':
-          return renderContractorResp(isComplete);
-        case 'scope':
-          return renderScope(isComplete);
-        case 'earlyOccupation':
-          return renderEarlyOccupation(isComplete);
-        case 'warranties':
-          return renderWarranties(isComplete);
-        case 'warrantyLimits':
-          return renderWarrantyLimits(isComplete);
-        case 'insurance':
-          return renderInsurance(isComplete);
-        case 'confidentiality':
-          return renderConfidentiality(isComplete);
-        case 'defaultLiability':
-          return renderDefaultLiability(isComplete);
-        case 'arbitration':
-          return renderArbitration(isComplete);
-        case 'juryWaiver':
-          return renderJuryWaiver(isComplete);
-        case 'rcla':
-          return renderRCLA(isComplete);
-        case 'signatures':
-          return renderSignatures(today, total, deposit, pkg, size);
-        default:
-          return '<p>Section not found.</p>';
+      switch(section.id) {
+        case 'info': return renderCustomerInfo();
+        case 'projectOverview': return renderProjectOverview();
+        case 'paymentTerms': return renderPaymentTerms();
+        case 'timeline': return renderTimeline();
+        case 'responsibilities': return renderResponsibilities();
+        case 'warranties': return renderWarranties();
+        case 'legalProvisions': return renderLegalProvisions();
+        case 'signatures': return renderSignatures();
+        default: return '<p>Section not found</p>';
       }
     }
 
-    // ==================== SECTION RENDERS ====================
-
-    function renderCustomerInfo(total, pkg, size) {
+    // Contract Section: Customer Info
+    function renderCustomerInfo() {
       return `
-        <div class="grid md:grid-cols-2 gap-4">
-          <div>
-            <label class="block font-semibold mb-1">Full Legal Name <span class="text-red-500">*</span></label>
-            <input type="text" value="${state.customer.name}" oninput="updateCustomer('name', this.value, this)"
-              class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.name ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Enter full legal name">
-          </div>
-          <div>
-            <label class="block font-semibold mb-1">Phone Number <span class="text-red-500">*</span></label>
-            <input type="tel" value="${state.customer.phone}" oninput="updateCustomer('phone', this.value, this)"
-              class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.phone ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="(555) 555-5555">
-          </div>
-          <div>
-            <label class="block font-semibold mb-1">Email Address <span class="text-red-500">*</span></label>
-            <input type="email" value="${state.customer.email}" oninput="updateCustomer('email', this.value, this)"
-              class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.email ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="you@email.com">
-            <p class="text-xs text-gray-500 mt-1">Contract copy will be sent here</p>
-          </div>
-          <div>
-            <label class="block font-semibold mb-1">Mailing Address <span class="text-red-500">*</span></label>
-            <input type="text" value="${state.customer.address}" oninput="updateCustomer('address', this.value, this)"
-              class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.address ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="123 Main St, City, TX 77001">
-          </div>
-          <div class="md:col-span-2">
-            <label class="block font-semibold mb-1">Property / Build Site Address <span class="text-red-500">*</span></label>
-            <input type="text" value="${state.customer.propertyAddress}" oninput="updateCustomer('propertyAddress', this.value, this)"
-              class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.propertyAddress ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Address where building will be constructed">
-          </div>
-          <div>
-            <label class="block font-semibold mb-1">Title (Optional)</label>
-            <input type="text" value="${state.customer.title || ''}" oninput="updateCustomer('title', this.value, this)"
-              class="border-2 rounded-lg p-3 w-full text-lg border-gray-300" placeholder="e.g., Owner, Manager">
-          </div>
-        </div>
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">👤 Customer Information</h3>
 
-        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h4 class="font-bold mb-2">Contract Summary</h4>
-          <p><strong>Building:</strong> ${pkg.name} - ${size.label}</p>
-          <p><strong>Contract Sum:</strong> $${total.toLocaleString()}</p>
-          <p><strong>Contractor:</strong> Burnett Customs, LLC</p>
-          <p><strong>Address:</strong> 101 Goodwin Avenue, Suite 580, Victoria, TX 77901</p>
-        </div>
-      `;
-    }
-
-    function renderDefinitions(today, isComplete) {
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 1: DEFINITIONS</h4>
-
-          <p class="mb-3"><strong>"Payment Deadline"</strong> means 2:00 P.M. on the third business day after Contractor's request for payment is received.</p>
-
-          <p class="mb-3"><strong>"Substantial Completion"</strong> or <strong>"Substantially Complete"</strong> means the stage when a certificate of occupancy is issued, or if no certificate is required, when all Improvements are sufficiently complete, in accordance with the Contract Documents, so that Owner may use or occupy the Improvements for the intended purpose. If Owner moves into the Improvements, the Improvements will be deemed to be substantially complete.</p>
-
-          <p class="mb-3"><strong>"Commencement Date"</strong> means the date of Substantial Completion and notice to Owner, but not later than Forty-Five (45) days, unless extended by the terms of the Contract Documents, force majeure delays, or other delays not within Contractor's control.</p>
-
-          <p class="mb-3"><strong>"Contract Documents"</strong> means the residential or commercial construction contract, the Plans, warranty documents, and any other documents governing the Work (collectively, the "Contract").</p>
-
-          <p class="mb-3"><strong>"Improvements"</strong> means the improvements to be constructed on the Property according to the Plans, including a single-family residence or commercial property.</p>
-
-          <p class="mb-3"><strong>"Plans"</strong> means all designed plans and specifications for the Improvements (dated and signed by Owner, authorized party and Contractor).</p>
-
-          <p class="mb-3"><strong>"Work"</strong> means the physical activities, materials, and equipment relating to the construction of the Improvements.</p>
-
-          <p class="mb-3"><strong>"Concealed Conditions"</strong> means preexisting physical conditions situated below the surface of the ground, or concealed or unknown conditions in an existing structure, at variance with the conditions indicated in the Contract Documents.</p>
-        </div>
-        ${renderAcknowledgment('definitions', isComplete, today)}
-      `;
-    }
-
-    function renderChangeOrders(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.B: CHANGE ORDERS</h4>
-
-          <p class="mb-3"><strong>(i)</strong> Contractor is under no duty to make any changes in the Plans requested by Owner until a change order is signed by Contractor and Owner or their duly authorized representatives.</p>
-
-          <p class="mb-3"><strong>(ii)</strong> Owner and Contractor, or their duly authorized representatives, must sign a written change order. An e-mail exchange or text message exchange in which the changes are discussed and acknowledged will also satisfy this requirement.</p>
-
-          <p class="mb-3"><strong>(iii)</strong> When Contractor receives a written request for any change, Contractor will present Owner with a proposal including any additional price, markup, and extensions to the projected Completion Date.</p>
-
-          <p class="mb-3"><strong>(iv)</strong> Failure of Owner to approve Contractor's proposal within <strong>five (5) days</strong> after receipt shall constitute a rejection.</p>
-
-          <p class="mb-3"><strong>(v)</strong> Owner shall pay for all work resulting from agreed-upon change orders in cash within five business days after acceptance. This payment shall take place before work commences.</p>
-
-          <p class="mb-3"><strong>(vi)</strong> Contractor is not obligated to proceed with any Work until all amounts have been paid pursuant to a change order.</p>
-
-          <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 mt-4">
-            <p class="font-bold text-amber-800">⚠️ CHANGE ORDER FEES:</p>
-            <p class="text-amber-900 mt-2"><strong>$250.00</strong> charge per Change Order request, due at the time the request is made.</p>
-            <p class="text-amber-900 mt-2">If change order(s) cause a disruption in progress, Owner will be billed <strong>$150.00 per working hour</strong> between 7:00 A.M. - 7:00 P.M. until work resumes.</p>
-          </div>
-        </div>
-        ${renderAcknowledgment('changeOrders', isComplete, today)}
-      `;
-    }
-
-    function renderPlans(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.C: PLANS</h4>
-
-          <p class="mb-3">Plans shall be furnished for all projects and signed by Owner and Contractor.</p>
-
-          <p class="mb-3"><strong>(i)</strong> If Owner furnishes the Plans, Owner warrants the sufficiency of the Plans and Contractor may reasonably rely on the accuracy of the Plans. Contractor disclaims all liability for any errors or omissions in Plans furnished by Owner.</p>
-
-          <p class="mb-3"><strong>(ii)</strong> If Contractor furnishes the Plans, Contractor warrants the Plans are in substantial compliance with all applicable laws. Plans prepared by Contractor will be the property of Contractor and may not be used by Owner on any other property.</p>
-
-          <div class="bg-blue-50 border-2 border-blue-500 rounded-lg p-4 mt-4">
-            <p class="font-bold text-[#003057]">📐 PLAN REVISION POLICY:</p>
-            <p class="text-[#01315b] mt-2">Owner has <strong>3 opportunities</strong> to redo/amend/revise the Plans before Work commences at no cost.</p>
-            <p class="text-[#01315b] mt-2">On the 4th revision and every revision thereafter: <strong>$550.00</strong> per revision.</p>
-            <p class="text-[#01315b] mt-2">All requested revisions after work commences shall be a change order.</p>
-          </div>
-
-          <p class="mt-4">Owner agrees that as long as construction of the Improvements reasonably complies with the Contract Documents, minor deviations will be accepted.</p>
-        </div>
-        ${renderAcknowledgment('plans', isComplete, today)}
-      `;
-    }
-
-    function renderConsumerProducts(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.D: CONSUMER PRODUCTS</h4>
-
-          <p class="mb-3">Consumer products, appliances, equipment, and components are excluded from Contractor's warranty to the extent individual manufacturers' warranties are passed through Contractor and assigned to Owner.</p>
-
-          <p class="mb-3">Contractor assigns and passes through to Owner the manufacturers' warranties on all consumer products, appliances, equipment, and components.</p>
-
-          <p class="mb-3">In the case of passed-through and received manufacturers' warranties on consumer products, appliances, equipment, and components, <strong>Owner's recourse is directly to the manufacturer</strong>, and Contractor has no responsibility for them, except for problems relating to Contractor's installation and hookup of the items.</p>
-        </div>
-        ${renderAcknowledgment('consumerProducts', isComplete, today)}
-      `;
-    }
-
-    function renderDelays(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.E: DELAYS IN PERFORMANCE / FORCE MAJEURE</h4>
-
-          <p class="mb-3">Contractor shall not be liable for damages or delays in performance due to circumstances beyond its reasonable control, including, but not limited to:</p>
-
-          <ul class="list-disc ml-6 mb-3">
-            <li>Strikes or labor disputes</li>
-            <li>Any priority system established by government agencies</li>
-            <li>Weather conditions (including fires, floods, storms, earthquakes, or other acts of God)</li>
-            <li>Supplier delays for similar reasons</li>
-            <li>General availability of materials or labor</li>
-            <li>Government mandated shutdowns</li>
-            <li>War, riots, or acts of public enemy or terrorist</li>
-          </ul>
-
-          <p class="mb-3"><strong>Such events shall NOT constitute grounds for Owner's cancellation/termination of the Contract.</strong> Rather, the Completion Date shall extend accordingly.</p>
-
-          <p class="mb-3">The affected Party shall: (a) notify the other Party as soon as practicable; (b) take reasonable steps to avoid or remove the Force Majeure; and (c) resume performance when and to the extent the Force Majeure is removed.</p>
-        </div>
-        ${renderAcknowledgment('delays', isComplete, today)}
-      `;
-    }
-
-    function renderDraws(total, deposit, isComplete) {
-      const today = new Date().toLocaleDateString();
-      const midPay = getMidPayment();
-      const finalPay = getFinalPayment();
-
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.F & 6: DRAWS & PAYMENT TERMS</h4>
-
-          <p class="mb-4">The Contract Sum of <strong>$${total.toLocaleString()}</strong> will be paid as follows:</p>
-
-          <table class="w-full border-collapse mb-4">
-            <tr class="bg-gray-100"><th class="border p-2 text-left">Draw</th><th class="border p-2 text-left">Milestone</th><th class="border p-2 text-right">Amount</th></tr>
-            <tr><td class="border p-2 font-semibold">1. Deposit</td><td class="border p-2">Upon Contract Signing</td><td class="border p-2 text-right font-bold text-green-600">$${deposit.toLocaleString()} (50%)</td></tr>
-            <tr><td class="border p-2 font-semibold">2. Mid-Construction</td><td class="border p-2">Materials Delivered / Roof Work Begins</td><td class="border p-2 text-right font-bold">$${midPay.toLocaleString()} (25%)</td></tr>
-            <tr><td class="border p-2 font-semibold">3. Final Payment</td><td class="border p-2">Substantial Completion</td><td class="border p-2 text-right font-bold">$${finalPay.toLocaleString()} (25%)</td></tr>
-            <tr class="bg-[#e0f7fa]"><td class="border p-2 font-bold" colspan="2">TOTAL CONTRACT SUM</td><td class="border p-2 text-right font-bold text-green-600 text-xl">$${total.toLocaleString()}</td></tr>
-          </table>
-
-          <div class="bg-red-50 border-2 border-red-500 rounded-lg p-4">
-            <p class="font-bold text-red-800">⚠️ LATE PAYMENT PENALTIES:</p>
-            <p class="text-red-900 mt-2"><strong>Payment Deadline:</strong> 2:00 P.M. on the third business day after Contractor's request.</p>
-            <p class="text-red-900 mt-2">If any Draw is not paid by the Payment Deadline:</p>
-            <ul class="list-disc ml-6 text-red-900">
-              <li><strong>10% late fee</strong> added immediately</li>
-              <li><strong>Additional 10%</strong> added every 72 hours until paid</li>
-            </ul>
-            <p class="text-red-900 mt-2"><strong>Contractor may cease work without breach of Contract</strong> if payment is not received.</p>
-          </div>
-
-          <p class="mt-4">Payments not received within the 30-day period shall bear interest at the rate of <strong>5% per month</strong> until received.</p>
-        </div>
-        ${renderAcknowledgment('draws', isComplete, today)}
-      `;
-    }
-
-    function renderMaterialCosts(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.G: MATERIAL COSTS</h4>
-
-          <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4">
-            <p class="font-bold text-amber-800">📦 MATERIAL COST PASS-THROUGH:</p>
-            <p class="text-amber-900 mt-2">Contractor shall pass through to Owner <strong>any and all additional price increases of materials cost</strong> occurring after contract signing.</p>
-          </div>
-
-          <p class="mt-4">This provision ensures that market fluctuations in material costs are equitably shared and do not result in Contractor bearing unforeseen expenses beyond the original scope.</p>
-        </div>
-        ${renderAcknowledgment('materialCosts', isComplete, today)}
-      `;
-    }
-
-    function renderContractorResp(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.H-V: CONTRACTOR RESPONSIBILITIES & TERMS</h4>
-
-          <p class="mb-3"><strong>Underground Lines (H):</strong> Contractor shall be responsible for checking placement of underground lines. Texas Law requires calling 1-800-545-6005 or 811 before digging.</p>
-
-          <p class="mb-3"><strong>Liability for Products (I):</strong> In no event shall Contractor be liable for consequential, incidental, or special damages relating to products or components, their design, use, or delivery.</p>
-
-          <div class="bg-blue-50 border-2 border-blue-500 rounded-lg p-4 my-4">
-            <p class="font-bold text-[#003057]">💰 CONTRACTOR'S RISK POLICY, DIRT WORK & PUMP TRUCK (J):</p>
-            <p class="text-[#01315b] mt-2">These expenses are at <strong>cost plus 20%</strong> due from Owner.</p>
-            <p class="text-[#01315b]">Payment is due <strong>before the delivery of Foundation Material</strong>.</p>
-          </div>
-
-          <p class="mb-3"><strong>Punch List Items (L):</strong> Any discrepancies of fit, finish, or other punch-list items will be handled after final payment is made and will be considered warranty work.</p>
-
-          <p class="mb-3"><strong>Soil Testing (N):</strong> Owner may request soil testing (Geotechnical Report) at their own expense. Contractor is not responsible for existing soil type or density.</p>
-
-          <p class="mb-3"><strong>Large Equipment (O):</strong> Owner shall provide adequate access to accommodate large and heavy equipment. Contractor is not responsible for ruts or grass damage reasonably incurred.</p>
-
-          <p class="mb-3"><strong>Independent Contractor (P):</strong> Contractor occupies the status of an independent contractor. Subcontractors are also independent contractors.</p>
-
-          <p class="mb-3"><strong>Communication (R):</strong> Any concerns observed by Owner shall be forwarded to Contractor, not subcontractors.</p>
-
-          <p class="mb-3"><strong>Utilities (T):</strong> Owner agrees to provide water and electricity to the property line unless otherwise designated.</p>
-
-          <p class="mb-3"><strong>Signs/Advertising (U):</strong> Contractor may display signage at the jobsite and use photos for promotional purposes.</p>
-        </div>
-        ${renderAcknowledgment('contractorResp', isComplete, today)}
-      `;
-    }
-
-    function renderScope(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.K: SCOPE OF CONTRACT</h4>
-
-          <div class="bg-blue-50 border-2 border-blue-500 rounded-lg p-4">
-            <p class="font-bold text-[#003057]">📏 CONTRACT SCOPE:</p>
-            <p class="text-[#01315b] mt-2 text-lg">This Contract Agreement covers Improvements only <strong>from drip edge to drip edge</strong>.</p>
-          </div>
-
-          <p class="mt-4">This means the Contractor's scope of work is limited to the building structure itself, measured from the outer edges of the roof overhang (drip edge). Work outside this area (such as landscaping, fencing, driveways beyond the concrete apron if included, or utility connections beyond the property line) is not included unless specifically stated in the Contract Documents.</p>
-        </div>
-        ${renderAcknowledgment('scope', isComplete, today)}
-      `;
-    }
-
-    function renderEarlyOccupation(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 4.M: EARLY USE OR OCCUPATION OF IMPROVEMENTS</h4>
-
-          <div class="bg-red-50 border-2 border-red-500 rounded-lg p-4">
-            <p class="font-bold text-red-800">🏠 IMPORTANT - EARLY OCCUPATION:</p>
-            <p class="text-red-900 mt-2">Unless otherwise agreed in writing by the parties or their authorized agents:</p>
-            <p class="text-red-900 mt-2 text-lg font-bold">Premature Occupation or Use of Improvements signifies satisfaction of all work and requires IMMEDIATE PAYMENT of the Contract in full.</p>
-          </div>
-
-          <p class="mt-4">Owner's acceptance of possession will be conclusively presumed to constitute Owner's acceptance of the Improvements as Substantially Complete and inhabitable.</p>
-        </div>
-        ${renderAcknowledgment('earlyOccupation', isComplete, today)}
-      `;
-    }
-
-    function renderWarranties(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section E: WARRANTIES</h4>
-
-          <p class="mb-3">Contractor warrants that its performance of work meets the residential construction warranties adopted by the Texas Residential Construction Commission. The warranties extend for the following periods after Substantial Completion:</p>
-
-          <div class="grid md:grid-cols-2 gap-4 my-4">
-            <div class="bg-[#e0f7fa] p-4 rounded-lg text-center border-2 border-[#05c3de]">
-              <div class="text-3xl font-bold text-green-600">1 Year</div>
-              <div class="font-semibold">Workmanship & Materials</div>
+          <div class="space-y-4">
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Full Legal Name *</label>
+              <input type="text" id="customerName" value="${state.customer.name}" oninput="updateCustomer('name', this.value)"
+                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.name ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Enter full legal name">
             </div>
-            <div class="bg-[#e0f7fa] p-4 rounded-lg text-center border-2 border-[#05c3de]">
-              <div class="text-3xl font-bold text-green-600">1 Year</div>
-              <div class="font-semibold">Plumbing, Electrical, HVAC Systems</div>
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Phone Number *</label>
+              <input type="tel" id="customerPhone" value="${state.customer.phone}" oninput="updateCustomer('phone', this.value)"
+                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.phone ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="(555) 555-5555">
             </div>
-            <div class="bg-[#e0f7fa] p-4 rounded-lg text-center border-2 border-[#05c3de] md:col-span-2">
-              <div class="text-3xl font-bold text-green-600">1 Year</div>
-              <div class="font-semibold">Major Structural Components</div>
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Email Address *</label>
+              <input type="email" id="customerEmail" value="${state.customer.email}" oninput="updateCustomer('email', this.value)"
+                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.email ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="you@email.com">
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Mailing Address *</label>
+              <input type="text" id="customerAddress" value="${state.customer.address}" oninput="updateCustomer('address', this.value)"
+                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.address ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="123 Main St, City, TX 77001">
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Property Address (if different)</label>
+              <input type="text" id="propertyAddress" value="${state.customer.propertyAddress}" oninput="updateCustomer('propertyAddress', this.value)"
+                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.propertyAddress ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Address where building will be constructed">
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Contract Section 1: Project Overview (consolidated)
+    function renderProjectOverview() {
+      const sectionData = state.sections.projectOverview;
+      const isComplete = sectionData.checked && sectionData.initialed;
+
+      return `
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">📖 Section 1: Project Overview</h3>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">DEFINITIONS</h4>
+            <div class="legal-text space-y-2">
+              <p><strong>"Owner"</strong> means the property owner signing this Contract.</p>
+              <p><strong>"Contractor"</strong> means Burnett Customs, LLC.</p>
+              <p><strong>"Work"</strong> means all labor, materials, equipment, and services required to complete the Project.</p>
+              <p><strong>"Contract Sum"</strong> means the total price stated in this Contract for the Work.</p>
+              <p><strong>"Substantial Completion"</strong> means the Work is sufficiently complete so the Owner can occupy or use the Project for its intended purpose.</p>
             </div>
           </div>
 
-          <p class="mb-3">Contractor represents and warrants that Contractor shall perform the Services in a professional manner with the standard of care, skill, and diligence normally provided by a professional Person in the performance of similar services.</p>
-        </div>
-        ${renderAcknowledgment('warranties', isComplete, today)}
-      `;
-    }
-
-    function renderWarrantyLimits(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text bg-amber-50 border-2 border-amber-500">
-          <h4 class="font-bold text-lg mb-3 text-amber-800">Section 5.C-D: WARRANTY LIMITATIONS</h4>
-
-          <p class="mb-3 font-semibold text-amber-900">IMPORTANT - READ CAREFULLY:</p>
-
-          <div class="bg-white p-4 rounded-lg mb-4">
-            <p class="mb-3"><strong>ALTERATION WAIVER:</strong> It is expressly understood and agreed that any alteration(s) concerning warranted matters by Owner, or any other person or entity, results in Owner <strong>WAIVING</strong> any warranties through Contractor.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">SCOPE OF CONTRACT</h4>
+            <div class="legal-text">
+              <p>This Contract Agreement covers Improvements only <strong>from drip edge to drip edge</strong>.</p>
+              <p class="mt-2">The scope includes the metal building structure as configured in the estimate. Any work outside this scope requires a written Change Order.</p>
+            </div>
           </div>
 
-          <div class="bg-red-100 p-4 rounded-lg border-2 border-red-500">
-            <p class="font-bold text-red-800 mb-2">EXCLUSIVE WARRANTIES (5.C):</p>
-            <p class="text-red-900">EXCEPT FOR THE FOREGOING WARRANTIES AND ANY WARRANTIES SET FORTH IN THIS AGREEMENT OR THE STATEMENT OF WORK, <strong>NO OTHER WARRANTIES, WRITTEN OR ORAL, STATUTORY, EXPRESS, OR IMPLIED, SHALL APPLY.</strong></p>
-
-            <p class="font-bold text-red-800 mt-4 mb-2">IMPLIED WARRANTY WAIVER (5.D):</p>
-            <p class="text-red-900">These express warranties are given <strong>IN LIEU OF</strong> the implied warranty of good and workmanlike construction and <strong>IN LIEU OF</strong> the warranty of merchantability or fitness for any particular purpose, which are <strong>DISCLAIMED AND WAIVED</strong>.</p>
-          </div>
-        </div>
-        ${renderAcknowledgment('warrantyLimits', isComplete, today)}
-      `;
-    }
-
-    function renderInsurance(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 7: INSURANCE</h4>
-
-          <p class="mb-3"><strong>(A)</strong> Contractor shall secure and maintain <strong>Commercial General Liability Insurance</strong> during the performance of its obligations under a Statement of Work.</p>
-
-          <p class="mb-3"><strong>(B)</strong> Contractor agrees to provide Owner a copy of <strong>Contractor's Risk Insurance Policy</strong> for the Property with a coverage amount equal to or greater than the Contract Sum.</p>
-
-          <p class="mb-3"><strong>(C)</strong> Contractor shall obtain contractor's risk insurance coverage for casualty loss and public liability in reasonable amounts, to protect Contractor and Owner.</p>
-        </div>
-        ${renderAcknowledgment('insurance', isComplete, today)}
-      `;
-    }
-
-    function renderConfidentiality(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 9: CONFIDENTIALITY</h4>
-
-          <p class="mb-3">"Confidential Information" includes the Terms of this Agreement, and with respect to either Party: (i) non-public documents designated as "Proprietary" or "Confidential" and (ii) business plans, customer information, engineering, and operating and technical data.</p>
-
-          <p class="mb-3">The Receiving Party shall:</p>
-          <ul class="list-disc ml-6 mb-3">
-            <li>Keep Confidential Information in strict confidence</li>
-            <li>Not use, publish or disclose to Third Parties without prior written consent</li>
-            <li>Upon request, promptly return or destroy all written copies</li>
-          </ul>
-
-          <p class="mb-3">Confidential Information may be disclosed to professional advisors, contractors, and subcontractors who have a need to know, provided they agree to maintain confidentiality.</p>
-        </div>
-        ${renderAcknowledgment('confidentiality', isComplete, today)}
-      `;
-    }
-
-    function renderDefaultLiability(isComplete) {
-      const today = new Date().toLocaleDateString();
-      return `
-        <div class="contract-section legal-text">
-          <h4 class="font-bold text-lg mb-3">Section 10: DEFAULT & LIABILITY LIMITATIONS</h4>
-
-          <p class="mb-3"><strong>Default (10.A):</strong> A Party shall be in default if such Party breaches any Term and does not cure such breach within <strong>15 days</strong> after notice (or 30 days if not capable of being cured within 15 days and diligently working to effect a cure).</p>
-
-          <div class="bg-blue-50 border-2 border-blue-500 rounded-lg p-4 my-4">
-            <p class="font-bold text-[#003057]">⚖️ LIMITATION ON LIABILITY (10.B):</p>
-            <p class="text-[#01315b] mt-2 font-bold">NEITHER PARTY SHALL BE LIABLE TO THE OTHER FOR SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">PLANS & REVISIONS</h4>
+            <div class="legal-text">
+              <p>Owner has <strong>3 opportunities</strong> to redo/amend/revise the Plans before Work commences at no cost.</p>
+              <p class="mt-2">On the 4th revision and every revision thereafter: <strong>$550.00</strong> per revision.</p>
+              <p class="mt-2">All requested revisions after work commences shall be a Change Order.</p>
+            </div>
           </div>
 
-          <p class="mb-3"><strong>Indemnification (10.C):</strong> Contractor agrees to defend, indemnify and hold harmless Owner from third party claims arising from Contractor's negligent acts, willful misconduct, or breach of this Agreement.</p>
-
-          <div class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 mt-4">
-            <p class="font-bold text-amber-800">⏰ TIME LIMITATIONS FOR CLAIMS:</p>
-            <p class="text-amber-900 mt-2">Any action or claim arising from this Contract, the Work, and/or Improvements is <strong>barred unless brought within 2 years and 1 day</strong> from the date the cause of action accrues.</p>
-          </div>
+          ${renderSectionAcknowledgment('projectOverview', isComplete)}
         </div>
-        ${renderAcknowledgment('defaultLiability', isComplete, today)}
       `;
     }
 
-    function renderArbitration(isComplete) {
-      const today = new Date().toLocaleDateString();
+    // Contract Section 2: Payment Terms
+    function renderPaymentTerms() {
+      const sectionData = state.sections.paymentTerms;
+      const isComplete = sectionData.checked && sectionData.initialed;
+
       return `
-        <div class="contract-section legal-text bg-blue-50 border-2 border-blue-500">
-          <h4 class="font-bold text-lg mb-3 text-[#003057]">Section 12.D: MEDIATION AND BINDING ARBITRATION</h4>
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">💰 Section 2: Payment Terms</h3>
 
-          <p class="mb-3 font-semibold text-[#01315b]">IMPORTANT - READ CAREFULLY:</p>
-
-          <p class="mb-3">The parties agree that any dispute, including but not limited to:</p>
-          <ul class="list-disc ml-6 mb-3">
-            <li>Controversies arising under or relating to this Contract</li>
-            <li>Claims arising by virtue of representations, omissions, promises or warranties</li>
-            <li>Personal injury or property damage alleged on the Property</li>
-          </ul>
-
-          <div class="bg-white p-4 rounded-lg border-2 border-blue-600 mb-4">
-            <p class="font-bold text-[#003057]">SHALL FIRST BE SUBMITTED TO MEDIATION</p>
-            <p class="text-[#01315b] mt-2">and, if not settled during mediation,</p>
-            <p class="font-bold text-[#003057] mt-2">SHALL THEREAFTER BE SUBMITTED TO BINDING ARBITRATION</p>
-            <p class="text-[#01315b] mt-2">as provided by the <strong>Federal Arbitration Act (9 U.S.C. §1 et seq.)</strong></p>
-            <p class="font-bold text-red-700 mt-2 text-lg">AND NOT BY OR IN A COURT OF LAW.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">DRAW SCHEDULE</h4>
+            <div class="legal-text">
+              <p><strong>Draw 1 (30%):</strong> Due upon contract signing</p>
+              <p><strong>Draw 2 (30%):</strong> Due upon delivery of materials to job site</p>
+              <p><strong>Draw 3 (30%):</strong> Due upon completion of framing</p>
+              <p><strong>Final Draw (10%):</strong> Due upon Substantial Completion</p>
+            </div>
           </div>
 
-          <p class="mb-3"><strong>In any arbitration proceeding:</strong></p>
-          <ul class="list-disc ml-6 mb-3">
-            <li>All applicable Federal and State law (including Chapter 27 of the Texas Property Code) shall apply</li>
-            <li>The arbitration shall be conducted in the same county as the Property</li>
-            <li>The arbitrator may award to the prevailing party all or any portion of costs and fees</li>
-            <li>Any award shall be final and binding, and judgment may be entered in any court having jurisdiction</li>
-          </ul>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">MATERIAL COSTS</h4>
+            <div class="legal-text">
+              <p>Material prices are subject to market fluctuations. If material costs increase more than <strong>5%</strong> between contract signing and material ordering, Owner will be notified and may:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Accept the price increase via Change Order</li>
+                <li>Cancel the contract with refund of deposits less administrative fees</li>
+              </ul>
+            </div>
+          </div>
 
-          <p class="font-semibold text-[#01315b]">These rights and obligations survive termination, default, or Substantial Completion of this Contract.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">ADDITIONAL COSTS</h4>
+            <div class="legal-text">
+              <p><strong>Contractor's Risk Policy, Dirt Work & Pump Truck:</strong></p>
+              <p>These expenses are at <strong>cost plus 20%</strong> due from Owner.</p>
+              <p class="mt-2">Payment is due <strong>before the delivery of Foundation Material</strong>.</p>
+            </div>
+          </div>
+
+          ${renderSectionAcknowledgment('paymentTerms', isComplete)}
         </div>
-        ${renderAcknowledgment('arbitration', isComplete, today)}
       `;
     }
 
-    function renderJuryWaiver(isComplete) {
-      const today = new Date().toLocaleDateString();
+    // Contract Section 3: Timeline & Changes
+    function renderTimeline() {
+      const sectionData = state.sections.timeline;
+      const isComplete = sectionData.checked && sectionData.initialed;
+
       return `
-        <div class="contract-section legal-text bg-red-50 border-2 border-red-500">
-          <h4 class="font-bold text-lg mb-3 text-red-800">Section 12.C & F: WAIVER OF TRIAL BY JURY</h4>
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">📅 Section 3: Timeline & Changes</h3>
 
-          <p class="mb-3 font-semibold text-red-900">CRITICAL PROVISION - READ CAREFULLY:</p>
-
-          <div class="bg-white p-4 rounded-lg border-2 border-red-600 mb-4">
-            <p class="text-red-900">In the event that it is determined that the arbitration provisions are not enforceable, the parties stipulate and agree that any and all disputes between them shall be resolved by a court of competent jurisdiction in the county where the Property is located <strong>WITHOUT THE USE OF A JURY</strong>.</p>
-
-            <p class="font-bold text-red-800 mt-4 text-xl">THE RIGHT TO A TRIAL BY JURY IS HEREBY EXPRESSLY WAIVED BY OWNER AND CONTRACTOR.</p>
-
-            <p class="text-red-900 mt-4">THE PARTIES HEREBY WAIVE THE RIGHT TO TRIAL BY JURY IN ANY LITIGATION ARISING OUT OF OR RELATING TO THIS AGREEMENT.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">CHANGE ORDERS</h4>
+            <div class="legal-text">
+              <p>Changes to the Work require a written Change Order signed by both parties.</p>
+              <p class="mt-2">Change Orders will specify:</p>
+              <ul class="list-disc ml-6">
+                <li>Description of the change</li>
+                <li>Adjustment to Contract Sum</li>
+                <li>Adjustment to schedule (if any)</li>
+              </ul>
+              <p class="mt-2">Work on changes shall not begin until the Change Order is signed and any required payment is received.</p>
+            </div>
           </div>
 
-          <p class="text-red-900">The rights and obligations set forth in this paragraph shall survive: (1) the termination of this Contract by either party; (2) the default of this Contract by either party; or (3) Substantial Completion and payment in full of the Total Contract Price.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">DELAYS & FORCE MAJEURE</h4>
+            <div class="legal-text">
+              <p>Contractor shall not be liable for delays caused by:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Weather conditions unsuitable for construction</li>
+                <li>Acts of God, natural disasters, or emergencies</li>
+                <li>Material shortages or supplier delays beyond Contractor's control</li>
+                <li>Government actions, inspections, or permit delays</li>
+                <li>Owner-requested changes or Owner-caused delays</li>
+              </ul>
+              <p class="mt-2">The project timeline will be extended by the duration of any such delays.</p>
+            </div>
+          </div>
+
+          ${renderSectionAcknowledgment('timeline', isComplete)}
         </div>
-        ${renderAcknowledgment('juryWaiver', isComplete, today)}
       `;
     }
 
-    function renderRCLA(isComplete) {
-      const today = new Date().toLocaleDateString();
+    // Contract Section 4: Responsibilities
+    function renderResponsibilities() {
+      const sectionData = state.sections.responsibilities;
+      const isComplete = sectionData.checked && sectionData.initialed;
+
       return `
-        <div class="contract-section legal-text bg-amber-50 border-2 border-amber-500">
-          <h4 class="font-bold text-lg mb-3 text-amber-800">RESIDENTIAL CONSTRUCTION LIABILITY ACT (RCLA) NOTICE</h4>
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">🔧 Section 4: Responsibilities</h3>
 
-          <p class="mb-3 text-amber-900">This contract is subject to <strong>Chapter 27 of the Texas Property Code</strong>. The provisions of that chapter may affect your right to recover damages arising from a construction defect.</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">CONTRACTOR RESPONSIBILITIES</h4>
+            <div class="legal-text">
+              <p>Contractor shall:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Perform all Work in a good and workmanlike manner</li>
+                <li>Furnish all labor, materials, and equipment necessary for the Work</li>
+                <li>Comply with all applicable building codes and regulations</li>
+                <li>Maintain a safe job site</li>
+                <li>Obtain necessary permits (permit fees are Owner's responsibility)</li>
+              </ul>
+            </div>
+          </div>
 
-          <p class="mb-3 text-amber-900">If you have a complaint concerning a construction defect and that defect has not been corrected as may be required by law or by contract:</p>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">OWNER RESPONSIBILITIES</h4>
+            <div class="legal-text">
+              <p>Owner shall:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Provide clear access to the job site</li>
+                <li>Ensure the site is ready for construction (clear, level, accessible)</li>
+                <li>Make timely payments according to the draw schedule</li>
+                <li>Make decisions and provide approvals in a timely manner</li>
+                <li>Notify Contractor of any known site conditions</li>
+              </ul>
+            </div>
+          </div>
 
-          <div class="bg-white p-4 rounded-lg border-2 border-amber-600 my-4">
-            <p class="font-bold text-amber-800">YOU MUST PROVIDE WRITTEN NOTICE:</p>
-            <ul class="list-disc ml-6 text-amber-900 mt-2">
-              <li>To the Contractor by <strong>certified mail, return receipt requested</strong></li>
-              <li><strong>Not later than the 60th day BEFORE</strong> the date you file suit or initiate arbitration</li>
-              <li>The notice must refer to <strong>Chapter 27 of the Texas Property Code</strong></li>
-              <li>The notice must <strong>describe the construction defect</strong></li>
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">CONSUMER PRODUCTS NOTICE</h4>
+            <div class="legal-text">
+              <p>Materials used may include products from third-party manufacturers. Contractor assigns to Owner any manufacturer warranties on such products but makes no independent warranty on consumer products.</p>
+            </div>
+          </div>
+
+          ${renderSectionAcknowledgment('responsibilities', isComplete)}
+        </div>
+      `;
+    }
+
+    // Contract Section 5: Warranties & Insurance
+    function renderWarranties() {
+      const sectionData = state.sections.warranties;
+      const isComplete = sectionData.checked && sectionData.initialed;
+
+      return `
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">🛡️ Section 5: Warranties & Insurance</h3>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">CONTRACTOR WARRANTY</h4>
+            <div class="legal-text">
+              <p>Contractor warrants the Work against defects in workmanship for a period of <strong>ONE (1) YEAR</strong> from the date of Substantial Completion.</p>
+              <p class="mt-2">This warranty covers defects in the Contractor's labor and installation only.</p>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">WARRANTY LIMITATIONS</h4>
+            <div class="legal-text">
+              <p>The warranty does NOT cover:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Normal wear and tear</li>
+                <li>Damage caused by Owner, third parties, or Acts of God</li>
+                <li>Modifications made by anyone other than Contractor</li>
+                <li>Failure to maintain the building properly</li>
+                <li>Manufacturer product defects (covered by manufacturer warranty)</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">INSURANCE</h4>
+            <div class="legal-text">
+              <p>Contractor maintains:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>General Liability Insurance</li>
+                <li>Workers' Compensation Insurance</li>
+              </ul>
+              <p class="mt-2">Owner is responsible for insuring the property and structure once Substantial Completion is achieved.</p>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">EARLY OCCUPATION</h4>
+            <div class="legal-text">
+              <p>If Owner occupies or uses the Project before Substantial Completion:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Owner assumes all risk of loss or damage</li>
+                <li>Owner must maintain insurance on the structure</li>
+                <li>Warranty period begins on the date of early occupation</li>
+              </ul>
+            </div>
+          </div>
+
+          ${renderSectionAcknowledgment('warranties', isComplete)}
+        </div>
+      `;
+    }
+
+    // Contract Section 6: Legal Provisions
+    function renderLegalProvisions() {
+      const sectionData = state.sections.legalProvisions;
+      const isComplete = sectionData.checked && sectionData.initialed;
+
+      return `
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">⚖️ Section 6: Legal Provisions</h3>
+
+          <div class="contract-section bg-red-50 border-red-200">
+            <h4 class="font-bold mb-2 text-red-800">⚠️ IMPORTANT LEGAL NOTICES - READ CAREFULLY</h4>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">DEFAULT & LIABILITY</h4>
+            <div class="legal-text">
+              <p><strong>If Owner defaults</strong> (fails to make payment or breaches this Contract), Contractor may:</p>
+              <ul class="list-disc ml-6 mt-2">
+                <li>Stop Work and remove equipment from the site</li>
+                <li>Retain all payments received</li>
+                <li>Pursue all legal remedies available</li>
+              </ul>
+              <p class="mt-4"><strong>LIMITATION ON LIABILITY:</strong></p>
+              <p class="font-semibold">NEITHER PARTY SHALL BE LIABLE TO THE OTHER FOR SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</p>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">BINDING ARBITRATION</h4>
+            <div class="legal-text">
+              <p class="font-semibold text-red-700">IMPORTANT - READ CAREFULLY:</p>
+              <p class="mt-2">Any dispute arising from this Contract:</p>
+              <ol class="list-decimal ml-6 mt-2">
+                <li><strong>SHALL FIRST BE SUBMITTED TO MEDIATION</strong></li>
+                <li>If not settled during mediation, <strong>SHALL THEREAFTER BE SUBMITTED TO BINDING ARBITRATION</strong></li>
+              </ol>
+              <p class="mt-2">as provided by the <strong>Federal Arbitration Act (9 U.S.C. §1 et seq.)</strong></p>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">JURY TRIAL WAIVER</h4>
+            <div class="legal-text">
+              <p class="font-semibold">BOTH PARTIES VOLUNTARILY AND KNOWINGLY WAIVE ANY RIGHT TO A TRIAL BY JURY</p>
+              <p class="mt-2">in any action or proceeding arising out of or related to this Contract.</p>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">TEXAS RCLA NOTICE</h4>
+            <div class="legal-text">
+              <p class="font-semibold">IMPORTANT NOTICE REGARDING CONSTRUCTION DEFECTS:</p>
+              <p class="mt-2">Chapter 27 of the Texas Property Code requires that before you file a lawsuit for defective construction against the Contractor, you must:</p>
+              <ol class="list-decimal ml-6 mt-2">
+                <li>Give Contractor written notice of the defect at least 60 days before filing suit</li>
+                <li>Allow Contractor to inspect the property</li>
+                <li>Allow Contractor the opportunity to make a written offer to repair or settle</li>
+              </ol>
+              <p class="mt-2">Failure to follow these procedures may affect your legal rights.</p>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <h4 class="font-bold mb-2">CONFIDENTIALITY</h4>
+            <div class="legal-text">
+              <p>Both parties agree to keep confidential the terms of this Contract and any proprietary information exchanged during the Project.</p>
+            </div>
+          </div>
+
+          ${renderSectionAcknowledgment('legalProvisions', isComplete)}
+        </div>
+      `;
+    }
+
+    // Contract Section 7: Final Signatures
+    function renderSignatures() {
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      const total = calculateTotal();
+
+      return `
+        <div class="bg-white rounded-xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-4 text-[#003057]">✍️ Section 7: Final Acknowledgment & Signatures</h3>
+
+          <div class="contract-section bg-[#e0f7fa]">
+            <h4 class="font-bold mb-2">CONTRACT SUMMARY</h4>
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p><strong>Building Type:</strong> ${type.name}</p>
+                <p><strong>Size:</strong> ${size.label}</p>
+                <p><strong>Eave Height:</strong> ${eave.label}</p>
+              </div>
+              <div>
+                <p><strong>Contract Sum:</strong> ${formatCurrency(total)}</p>
+                <p><strong>Owner:</strong> ${state.customer.name || 'Not entered'}</p>
+                <p><strong>Contractor:</strong> Burnett Customs, LLC</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="contract-section">
+            <p class="legal-text font-semibold">By signing below, both parties acknowledge that:</p>
+            <ul class="list-disc ml-6 mt-2 legal-text">
+              <li>They have read and understand ALL sections of this Contract</li>
+              <li>They have had the opportunity to consult with an attorney</li>
+              <li>They agree to be bound by the terms and conditions herein</li>
+              <li>The Contractor has personally walked the Owner through every section</li>
             </ul>
           </div>
 
-          <p class="text-amber-900">If requested by the Contractor, you must provide the Contractor an opportunity to inspect and cure the defect as provided by Section 27.004 of the Texas Property Code.</p>
-
-          <div class="bg-red-100 p-4 rounded-lg border-2 border-red-500 mt-4">
-            <p class="font-bold text-red-800">⚠️ IMPORTANT NOTICE:</p>
-            <p class="text-red-900 mt-2">You and your contractor are responsible for meeting the terms and conditions of this contract. If you sign this contract and you fail to meet the terms and conditions of this contract, <strong>you may lose your legal ownership rights in your home</strong>.</p>
-            <p class="font-bold text-red-900 mt-2">KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.</p>
-          </div>
-
-          <div class="bg-blue-100 p-4 rounded-lg border-2 border-blue-500 mt-4">
-            <p class="font-bold text-[#003057]">📋 CONSULT YOUR ATTORNEY:</p>
-            <p class="text-[#01315b] mt-2">This is intended to be a legally binding contract. <strong>READ IT CAREFULLY.</strong> If you do not understand the effect of any part of the Contract Documents, consult your attorney BEFORE signing.</p>
-          </div>
-        </div>
-        ${renderAcknowledgment('rcla', isComplete, today)}
-      `;
-    }
-
-    function renderSignatures(today, total, deposit, pkg, size) {
-      return `
-        <div class="bg-blue-50 p-4 rounded-lg mb-6">
-          <p class="font-semibold">By signing below, both parties agree to ALL terms and conditions of this Master Service Agreement, including:</p>
-          <ul class="list-disc ml-6 mt-2 text-sm">
-            <li>Payment terms, schedule, and late fees (10% + 10% every 72 hours)</li>
-            <li>Change order fees ($250 per request, $150/hr disruption)</li>
-            <li>Plan revision fees ($550 after 3 free revisions)</li>
-            <li>Material cost pass-through provisions</li>
-            <li>Contractor responsibilities and scope limitations</li>
-            <li>1-Year warranty provisions and limitations</li>
-            <li>Implied warranty waiver</li>
-            <li>Mediation and binding arbitration requirements</li>
-            <li>Express waiver of jury trial</li>
-            <li>RCLA notice requirements (60-day certified mail)</li>
-            <li>2-year + 1-day limitation on claims</li>
-          </ul>
-        </div>
-
-        <div class="grid md:grid-cols-2 gap-6 mb-6">
           <!-- Owner Signature -->
-          <div id="ownerSigContainer" class="bg-white p-4 rounded-lg border-2 ${state.ownerTypedName && state.ownerSigned ? 'border-[#05c3de]' : 'border-gray-300'}">
-            <h4 class="font-bold text-lg mb-3">👤 OWNER</h4>
-
-            <div class="mb-3">
-              <label class="block font-semibold mb-1">Print Name <span class="text-red-500">*</span></label>
-              <input type="text" id="ownerNameInput" value="${state.ownerTypedName || state.customer.name}" oninput="updateOwnerName(this.value)"
-                class="border-2 rounded-lg p-2 w-full ${state.ownerTypedName ? 'border-[#05c3de]' : 'border-gray-300'}"
-                placeholder="Full Legal Name">
-            </div>
-
-            <div class="mb-3">
-              <label class="block font-semibold mb-1">Title</label>
-              <input type="text" value="${state.customer.title || ''}" readonly
-                class="border-2 rounded-lg p-2 w-full bg-gray-50 border-gray-300">
-            </div>
-
-            <label class="block font-semibold mb-1">Signature <span class="text-red-500">*</span></label>
-            <p class="text-xs text-gray-500 mb-2">Sign with finger or mouse</p>
-            <canvas id="ownerSig" width="320" height="100" class="signature-pad w-full"></canvas>
-            <button onclick="clearOwnerSig()" class="text-sm text-red-600 mt-1">Clear Signature</button>
-
-            <div class="mt-3 pt-3 border-t text-sm">
-              <p><strong>Date:</strong> ${today}</p>
+          <div class="mt-6">
+            <h4 class="font-bold text-lg mb-3">Owner Signature</h4>
+            <div id="ownerSigContainer" class="bg-white p-4 rounded-lg border-2 ${state.ownerTypedName && state.ownerSigned ? 'border-[#05c3de]' : 'border-gray-300'}">
+              <div class="mb-3">
+                <label class="block text-sm font-semibold mb-1">Print Name:</label>
+                <input type="text" id="ownerTypedNameInput" value="${state.ownerTypedName}" oninput="updateOwnerName(this.value)"
+                       class="border-2 rounded-lg p-2 w-full ${state.ownerTypedName ? 'border-[#05c3de]' : 'border-gray-300'}"
+                       placeholder="Type your full legal name">
+              </div>
+              <label class="block text-sm font-semibold mb-1">Signature:</label>
+              <canvas id="ownerSigPad" width="400" height="100" class="signature-pad w-full ${state.ownerSigned ? 'signed' : ''}"></canvas>
+              <button onclick="clearOwnerSignature()" class="mt-2 text-sm text-gray-500 hover:text-gray-700">Clear signature</button>
             </div>
           </div>
 
           <!-- Contractor Signature -->
-          <div id="contractorSigContainer" class="bg-white p-4 rounded-lg border-2 ${state.contractorTypedName && state.contractorSigned ? 'border-[#05c3de]' : 'border-gray-300'}">
-            <h4 class="font-bold text-lg mb-3">🏢 CONTRACTOR</h4>
-
-            <div class="mb-3">
-              <label class="block font-semibold mb-1">Print Name <span class="text-red-500">*</span></label>
-              <input type="text" id="contractorNameInput" value="${state.contractorTypedName}" oninput="updateContractorName(this.value)"
-                class="border-2 rounded-lg p-2 w-full ${state.contractorTypedName ? 'border-[#05c3de]' : 'border-gray-300'}">
-            </div>
-
-            <div class="mb-3">
-              <label class="block font-semibold mb-1">Title</label>
-              <input type="text" value="CEO" readonly
-                class="border-2 rounded-lg p-2 w-full bg-gray-50 border-gray-300">
-            </div>
-
-            <label class="block font-semibold mb-1">Signature <span class="text-red-500">*</span></label>
-            <p class="text-xs text-gray-500 mb-2">Sign with finger or mouse</p>
-            <canvas id="contractorSig" width="320" height="100" class="signature-pad w-full"></canvas>
-            <button onclick="clearContractorSig()" class="text-sm text-red-600 mt-1">Clear Signature</button>
-
-            <div class="mt-3 pt-3 border-t text-sm">
-              <p><strong>Company:</strong> Burnett Customs, LLC</p>
-              <p><strong>Date:</strong> ${today}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment Section -->
-        <div class="bg-[#e0f7fa] p-4 rounded-lg border-2 border-[#05c3de] mb-4">
-          <h4 class="font-bold text-lg mb-3 text-green-800">💳 DEPOSIT PAYMENT</h4>
-
-          <div class="grid md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <p class="text-lg">Contract Sum: <strong>$${total.toLocaleString()}</strong></p>
-              <p class="text-2xl font-bold text-green-700">Deposit Due: $${deposit.toLocaleString()}</p>
-              <p class="text-sm text-gray-600">(50% due at signing)</p>
-            </div>
-            <div>
-              <label class="block font-semibold mb-2">Payment Method <span class="text-red-500">*</span></label>
-              <select id="paymentMethod" onchange="updatePaymentMethod(this.value)" class="border-2 rounded-lg p-3 w-full ${state.paymentMethod ? 'border-[#05c3de]' : 'border-gray-300'}">
-                <option value="">Select payment method...</option>
-                <option value="cash" ${state.paymentMethod === 'cash' ? 'selected' : ''}>Cash</option>
-                <option value="check" ${state.paymentMethod === 'check' ? 'selected' : ''}>Check</option>
-                <option value="card" ${state.paymentMethod === 'card' ? 'selected' : ''}>Credit/Debit Card</option>
-                <option value="financing" ${state.paymentMethod === 'financing' ? 'selected' : ''}>Financing (Pending Approval)</option>
-                <option value="ach" ${state.paymentMethod === 'ach' ? 'selected' : ''}>ACH/Wire Transfer</option>
-              </select>
+          <div class="mt-6">
+            <h4 class="font-bold text-lg mb-3">Contractor Signature</h4>
+            <div id="contractorSigContainer" class="bg-white p-4 rounded-lg border-2 ${state.contractorTypedName && state.contractorSigned ? 'border-[#05c3de]' : 'border-gray-300'}">
+              <div class="mb-3">
+                <label class="block text-sm font-semibold mb-1">Print Name:</label>
+                <input type="text" id="contractorTypedNameInput" value="${state.contractorTypedName}" oninput="updateContractorName(this.value)"
+                       class="border-2 rounded-lg p-2 w-full ${state.contractorTypedName ? 'border-[#05c3de]' : 'border-gray-300'}">
+                <p class="text-xs text-gray-500 mt-1">Company: Burnett Customs, LLC</p>
+              </div>
+              <label class="block text-sm font-semibold mb-1">Signature:</label>
+              <canvas id="contractorSigPad" width="400" height="100" class="signature-pad w-full ${state.contractorSigned ? 'signed' : ''}"></canvas>
+              <button onclick="clearContractorSignature()" class="mt-2 text-sm text-gray-500 hover:text-gray-700">Clear signature</button>
             </div>
           </div>
 
-          ${state.paymentMethod === 'check' ? `
-            <div class="mt-3">
-              <label class="block font-semibold mb-1">Check Number</label>
-              <input type="text" value="${state.paymentReference}" oninput="state.paymentReference = this.value"
-                class="border-2 rounded-lg p-2 w-full border-gray-300" placeholder="Enter check number">
+          <!-- Payment Method -->
+          <div class="mt-6">
+            <h4 class="font-bold text-lg mb-3">Payment Method for First Draw</h4>
+            <div class="bg-[#e0f7fa] p-4 rounded-lg border-2 border-[#05c3de] mb-4">
+              <p class="text-sm"><strong>First Draw Due:</strong> ${formatCurrency(Math.round(total * 0.30))} (30% of Contract Sum)</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+              ${['cash', 'check', 'card', 'financing', 'ach'].map(method => `
+                <button onclick="selectPaymentMethod('${method}')"
+                        class="p-3 rounded-lg border-2 text-center ${state.paymentMethod === method ? 'border-[#05c3de] bg-[#e0f7fa]' : 'border-gray-200 hover:border-gray-300'}">
+                  <span class="font-semibold capitalize">${method === 'ach' ? 'ACH Transfer' : method}</span>
+                </button>
+              `).join('')}
+            </div>
+            ${state.paymentMethod === 'card' ? `
+              <p class="mt-3 text-sm text-[#003057]">💳 Card payment will be processed separately. Contractor will collect card information securely.</p>
+            ` : ''}
+          </div>
+
+          ${state.sent ? `
+            <div class="mt-6 bg-green-50 border-2 border-green-500 rounded-xl p-4 text-center">
+              <p class="text-green-800 font-bold text-lg">✅ Contract Sent Successfully!</p>
+              <p class="text-green-700">Copies have been sent to both parties.</p>
+              <button onclick="window.print()" class="mt-3 py-2 px-6 btn-primary rounded-lg font-semibold">🖨️ Print Copy</button>
             </div>
           ` : ''}
-
-          ${state.paymentMethod === 'card' ? `
-            <div class="mt-3 p-3 bg-blue-100 rounded-lg">
-              <p class="text-[#003057]">💳 Card payment will be processed separately. Contractor will collect card information securely.</p>
-            </div>
-          ` : ''}
-
-          ${state.paymentMethod === 'financing' ? `
-            <div class="mt-3 p-3 bg-amber-100 rounded-lg">
-              <p class="text-amber-800">📋 Financing subject to approval. Contract contingent upon financing approval.</p>
-            </div>
-          ` : ''}
-        </div>
-
-        <div class="p-4 bg-gray-100 rounded-lg">
-          <h4 class="font-bold mb-2">Contract will be sent to:</h4>
-          <p>📧 <strong>Owner:</strong> ${state.customer.email || '[Complete customer information]'}</p>
-          <p>📧 <strong>Contractor:</strong> bobby@burnettcustoms.net</p>
         </div>
       `;
     }
 
-    // ==================== ACKNOWLEDGMENT BLOCK ====================
-    function renderAcknowledgment(sectionId, isComplete, today) {
-      const ack = state.sections[sectionId];
+    // Helper: Render Section Acknowledgment
+    function renderSectionAcknowledgment(sectionId, isComplete) {
+      const sectionData = state.sections[sectionId];
       return `
-        <div class="section-ack ${isComplete ? 'complete' : ''}" id="ack-${sectionId}">
+        <div class="section-ack ${isComplete ? 'complete' : ''}">
           <div class="flex items-start gap-3 mb-4">
-            <input type="checkbox" id="check-${sectionId}" ${ack?.checked ? 'checked' : ''}
-              onchange="updateSectionCheck('${sectionId}', this.checked)"
-              class="w-6 h-6 mt-1 cursor-pointer">
-            <label for="check-${sectionId}" class="cursor-pointer">
-              <span class="font-bold">I have read and understand the above section</span>
-              <p class="text-sm text-gray-600">By checking this box, I acknowledge that I have read, understand, and agree to the terms in this section.</p>
+            <input type="checkbox" id="check_${sectionId}" ${sectionData.checked ? 'checked' : ''}
+                   onchange="toggleSectionCheck('${sectionId}')"
+                   class="w-5 h-5 mt-1 cursor-pointer">
+            <label for="check_${sectionId}" class="cursor-pointer">
+              <span class="font-semibold">I have read and understand this section.</span>
+              <span class="text-gray-600 text-sm block">By checking this box, I acknowledge that I have read, understand, and agree to the terms above.</span>
             </label>
           </div>
 
-          <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex items-center gap-4">
             <div>
-              <label class="block font-semibold mb-1 text-sm">Initial Here <span class="text-red-500">*</span></label>
-              <canvas id="initials-${sectionId}" width="120" height="50" class="initials-pad"></canvas>
-              <button onclick="clearInitials('${sectionId}')" class="text-xs text-red-600 block mt-1">Clear</button>
+              <label class="block text-sm font-semibold mb-1">Initials:</label>
+              <canvas id="initials_${sectionId}" width="80" height="40"
+                      class="initials-pad ${sectionData.initialed ? 'signed' : ''}"></canvas>
             </div>
-            <div class="text-sm">
-              <p><strong>Print Name:</strong> ${state.customer.name || '________________'}</p>
-              <p><strong>Date:</strong> ${today}</p>
-            </div>
+            <button onclick="clearInitials('${sectionId}')" class="text-sm text-gray-500 hover:text-gray-700 mt-4">Clear</button>
+            ${isComplete ? '<span class="text-green-600 font-semibold ml-auto">✓ Section Complete</span>' : ''}
           </div>
         </div>
       `;
     }
 
-    // ==================== ACTIONS ====================
-    function selectLevel(level) { state.level = level; state.size = null; render(); }
-    function selectSize(size) { state.size = size; render(); }
-    function toggleAddon(id) { state.addons[id] = !state.addons[id]; if (!state.quantities[id]) state.quantities[id] = 1; render(); }
-    function updateQty(id, delta) { state.quantities[id] = Math.max(1, (state.quantities[id] || 1) + delta); render(); }
+    // ==================== EVENT HANDLERS ====================
 
-    function updateCustomer(field, value, inputElement) {
-      state.customer[field] = value;
-      if (inputElement) {
-        inputElement.classList.remove('border-gray-300', 'border-[#05c3de]');
-        inputElement.classList.add(value ? 'border-[#05c3de]' : 'border-gray-300');
+    function selectBuildingType(type) {
+      state.buildingType = type;
+      render();
+    }
+
+    function selectSize(sizeId) {
+      state.buildingSize = sizeId;
+      render();
+    }
+
+    function selectEave(eaveId) {
+      state.eaveHeight = eaveId;
+      render();
+    }
+
+    function adjustDoor(doorType, delta) {
+      const current = state.doors[doorType].qty;
+      state.doors[doorType].qty = Math.max(0, Math.min(4, current + delta));
+      render();
+    }
+
+    function updateDoorPlacement(doorType, placement) {
+      state.doors[doorType].placement = placement;
+    }
+
+    function toggleAddon(id) {
+      state.addons[id] = !state.addons[id];
+      render();
+    }
+
+    function nextStep() {
+      if (state.buildingType === 'boltUp' && state.step === 0) {
+        state.step = 1; // Will render bolt-up form
+      } else {
+        state.step++;
       }
+      render();
+    }
+
+    function goBack() {
+      if (state.step > 0) {
+        state.step--;
+        if (state.buildingType === 'boltUp' && state.step === 0) {
+          state.buildingType = null;
+        }
+      }
+      render();
+    }
+
+    function proceedToContract() {
+      state.step = 6;
+      state.contractStep = 0;
+      render();
+    }
+
+    function nextContractStep() {
+      const section = CONTRACT_SECTIONS[state.contractStep];
+
+      // Validate current section if it requires acknowledgment
+      if (section.requiresAck) {
+        const sectionData = state.sections[section.id];
+        if (!sectionData.checked || !sectionData.initialed) {
+          document.getElementById('sectionWarning').textContent = 'Please check the box and add your initials to continue.';
+          return;
+        }
+      }
+
+      // Validate customer info
+      if (section.id === 'info') {
+        if (!state.customer.name || !state.customer.phone || !state.customer.email || !state.customer.address) {
+          document.getElementById('sectionWarning').textContent = 'Please fill in all required fields.';
+          return;
+        }
+      }
+
+      state.contractStep++;
+      render();
+
+      // Initialize signature pads if on signatures section
+      if (CONTRACT_SECTIONS[state.contractStep].id === 'signatures') {
+        setTimeout(initSignaturePads, 100);
+      }
+    }
+
+    function prevContractStep() {
+      if (state.contractStep > 0) {
+        state.contractStep--;
+        render();
+      }
+    }
+
+    function toggleSectionCheck(sectionId) {
+      state.sections[sectionId].checked = !state.sections[sectionId].checked;
       updateNavigationState();
     }
 
     function updateNavigationState() {
-      const currentSection = CONTRACT_SECTIONS[state.contractStep];
-      const canProceed = canProceedFromSection(currentSection.id);
+      const section = CONTRACT_SECTIONS[state.contractStep];
+      if (!section.requiresAck) return;
+
+      const sectionData = state.sections[section.id];
+      const canProceed = sectionData.checked && sectionData.initialed;
 
       const nextBtn = document.getElementById('nextSectionBtn');
+      const warning = document.getElementById('sectionWarning');
+
       if (nextBtn) {
         nextBtn.disabled = !canProceed;
-        nextBtn.className = `py-3 px-6 rounded-xl font-semibold ${canProceed ? 'btn-primary text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`;
+        nextBtn.className = `py-3 px-6 rounded-xl font-semibold ${canProceed ? 'btn-primary' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`;
       }
-
-      const warningMsg = document.getElementById('validationWarning');
-      if (warningMsg) {
-        warningMsg.style.display = canProceed ? 'none' : 'block';
-      }
-    }
-
-    function updateSectionCheck(sectionId, checked) {
-      if (!state.sections[sectionId]) {
-        state.sections[sectionId] = { checked: false, initialed: false };
-      }
-      state.sections[sectionId].checked = checked;
-      updateAckStyle(sectionId);
-      updateNavigationState();
-    }
-
-    function updateSectionInitials(sectionId, initialed) {
-      if (!state.sections[sectionId]) {
-        state.sections[sectionId] = { checked: false, initialed: false };
-      }
-      state.sections[sectionId].initialed = initialed;
-      updateAckStyle(sectionId);
-      updateNavigationState();
-    }
-
-    function updateAckStyle(sectionId) {
-      const ack = state.sections[sectionId];
-      const container = document.getElementById(`ack-${sectionId}`);
-      if (container) {
-        if (ack && ack.checked && ack.initialed) {
-          container.classList.add('complete');
-        } else {
-          container.classList.remove('complete');
-        }
+      if (warning) {
+        warning.textContent = '';
       }
     }
 
     function clearInitials(sectionId) {
       if (initialsPads[sectionId]) {
         initialsPads[sectionId].clear();
-        updateSectionInitials(sectionId, false);
+        state.sections[sectionId].initialed = false;
+        updateNavigationState();
       }
     }
 
-    function prevQuoteStep() { if (state.quoteStep > 0) { state.quoteStep--; render(); } }
-    function nextQuoteStep() {
-      if (state.quoteStep < 2) {
-        state.quoteStep++;
-      } else {
-        state.quoteStep = 3;
-      }
-      render();
-      window.scrollTo(0, 0);
-    }
-
-    function prevContractStep() {
-      if (state.contractStep > 0) {
-        state.contractStep--;
-        window.ownerPad = null;
-        window.contractorPad = null;
-        render();
-        window.scrollTo(0, 0);
+    function updateCustomer(field, value) {
+      state.customer[field] = value;
+      // Update input border color
+      const input = document.getElementById('customer' + field.charAt(0).toUpperCase() + field.slice(1));
+      if (input) {
+        input.classList.remove('border-gray-300', 'border-[#05c3de]');
+        input.classList.add(value ? 'border-[#05c3de]' : 'border-gray-300');
       }
     }
 
-    function nextContractStep() {
-      if (state.contractStep < CONTRACT_SECTIONS.length - 1) {
-        state.contractStep++;
-        window.ownerPad = null;
-        window.contractorPad = null;
-        render();
-        window.scrollTo(0, 0);
-      }
+    function updateBoltUpField(field, value) {
+      state.customer[field] = value;
     }
 
-    function initializePads(sectionId) {
-      // Initialize initials pad for acknowledgment sections
-      if (sectionId !== 'info' && sectionId !== 'signatures') {
-        const initialsCanvas = document.getElementById(`initials-${sectionId}`);
-        if (initialsCanvas && !initialsPads[sectionId]) {
-          initialsPads[sectionId] = new SignaturePad(initialsCanvas, (signed) => {
-            updateSectionInitials(sectionId, signed);
-          }, true);
-        }
-      }
-
-      // Initialize signature pads for signatures section
-      if (sectionId === 'signatures') {
-        const ownerCanvas = document.getElementById('ownerSig');
-        const contractorCanvas = document.getElementById('contractorSig');
-
-        if (ownerCanvas && !window.ownerPad) {
-          window.ownerPad = new SignaturePad(ownerCanvas, (signed) => {
-            state.ownerSigned = signed;
-            updateSignatureStatus();
-          });
-        }
-        if (contractorCanvas && !window.contractorPad) {
-          window.contractorPad = new SignaturePad(contractorCanvas, (signed) => {
-            state.contractorSigned = signed;
-            updateSignatureStatus();
-          });
-        }
-
-        // Pre-fill owner name if empty
-        if (!state.ownerTypedName && state.customer.name) {
-          state.ownerTypedName = state.customer.name;
-        }
-      }
-    }
-
-    function clearOwnerSig() {
-      if (window.ownerPad) {
-        window.ownerPad.clear();
-        state.ownerSigned = false;
-        updateSignatureStatus();
-      }
-    }
-
-    function clearContractorSig() {
-      if (window.contractorPad) {
-        window.contractorPad.clear();
-        state.contractorSigned = false;
-        updateSignatureStatus();
-      }
+    function updateBoltUpSpec(field, value) {
+      state.boltUpSpecs[field] = value;
     }
 
     function updateOwnerName(value) {
       state.ownerTypedName = value;
-      const input = document.getElementById('ownerNameInput');
+      const input = document.getElementById('ownerTypedNameInput');
       if (input) {
         input.classList.remove('border-gray-300', 'border-[#05c3de]');
         input.classList.add(value ? 'border-[#05c3de]' : 'border-gray-300');
       }
-      updateSignatureStatus();
     }
 
     function updateContractorName(value) {
       state.contractorTypedName = value;
-      const input = document.getElementById('contractorNameInput');
+      const input = document.getElementById('contractorTypedNameInput');
       if (input) {
         input.classList.remove('border-gray-300', 'border-[#05c3de]');
         input.classList.add(value ? 'border-[#05c3de]' : 'border-gray-300');
       }
-      updateSignatureStatus();
     }
 
-    function updatePaymentMethod(value) {
-      state.paymentMethod = value;
-      const select = document.getElementById('paymentMethod');
-      if (select) {
-        select.classList.remove('border-gray-300', 'border-[#05c3de]');
-        select.classList.add(value ? 'border-[#05c3de]' : 'border-gray-300');
-      }
-      render(); // Re-render to show conditional fields
+    function selectPaymentMethod(method) {
+      state.paymentMethod = method;
+      render();
+      setTimeout(initSignaturePads, 100);
     }
 
-    function updateSignatureStatus() {
-      const ownerContainer = document.getElementById('ownerSigContainer');
-      const contractorContainer = document.getElementById('contractorSigContainer');
-
-      if (ownerContainer) {
-        ownerContainer.classList.remove('border-gray-300', 'border-[#05c3de]');
-        ownerContainer.classList.add((state.ownerTypedName && state.ownerSigned) ? 'border-[#05c3de]' : 'border-gray-300');
-      }
-      if (contractorContainer) {
-        contractorContainer.classList.remove('border-gray-300', 'border-[#05c3de]');
-        contractorContainer.classList.add((state.contractorTypedName && state.contractorSigned) ? 'border-[#05c3de]' : 'border-gray-300');
+    function initSignaturePads() {
+      // Owner signature
+      const ownerCanvas = document.getElementById('ownerSigPad');
+      if (ownerCanvas && !window.ownerPad) {
+        window.ownerPad = new SignaturePad(ownerCanvas, (signed) => {
+          state.ownerSigned = signed;
+          ownerCanvas.classList.toggle('signed', signed);
+        });
       }
 
-      updateNavigationState();
+      // Contractor signature
+      const contractorCanvas = document.getElementById('contractorSigPad');
+      if (contractorCanvas && !window.contractorPad) {
+        window.contractorPad = new SignaturePad(contractorCanvas, (signed) => {
+          state.contractorSigned = signed;
+          contractorCanvas.classList.toggle('signed', signed);
+        });
+      }
+
+      // Initialize initials pads for current section
+      const section = CONTRACT_SECTIONS[state.contractStep];
+      if (section.requiresAck) {
+        const initialsCanvas = document.getElementById('initials_' + section.id);
+        if (initialsCanvas && !initialsPads[section.id]) {
+          initialsPads[section.id] = new SignaturePad(initialsCanvas, (signed) => {
+            state.sections[section.id].initialed = signed;
+            initialsCanvas.classList.toggle('signed', signed);
+            updateNavigationState();
+          }, true);
+        }
+      }
     }
 
-    async function sendContract() {
-      if (!canProceedFromSection('signatures')) {
-        alert('Please complete all required signatures and select a payment method.');
+    function clearOwnerSignature() {
+      if (window.ownerPad) {
+        window.ownerPad.clear();
+        state.ownerSigned = false;
+      }
+    }
+
+    function clearContractorSignature() {
+      if (window.contractorPad) {
+        window.contractorPad.clear();
+        state.contractorSigned = false;
+      }
+    }
+
+    function submitBoltUpQuote() {
+      if (!state.customer.name || !state.customer.phone || !state.customer.email) {
+        alert('Please fill in your name, phone, and email.');
+        return;
+      }
+
+      const subject = encodeURIComponent('Bolt-Up Building Quote Request');
+      const body = encodeURIComponent(`
+BOLT-UP BUILDING QUOTE REQUEST
+==============================
+
+Contact Information:
+- Name: ${state.customer.name}
+- Phone: ${state.customer.phone}
+- Email: ${state.customer.email}
+
+Building Specifications:
+- Desired Size: ${state.boltUpSpecs.customSize || 'Not specified'}
+- Desired Eave Height: ${state.boltUpSpecs.customEave || 'Not specified'}
+
+Door Preferences:
+${state.boltUpSpecs.doorPrefs || 'Not specified'}
+
+Add-On Preferences:
+${state.boltUpSpecs.addOnPrefs || 'Not specified'}
+
+Special Requirements/Notes:
+${state.boltUpSpecs.specialReqs || 'None'}
+
+---
+Submitted via Burnett Metal Building Estimator
+      `);
+
+      window.location.href = `mailto:bobby@burnettcustoms.net?subject=${subject}&body=${body}`;
+
+      alert('Your quote request is ready to send! Your email client should open with the details.');
+    }
+
+    function sendContract() {
+      // Validate signatures
+      if (!state.ownerTypedName || !state.ownerSigned) {
+        alert('Owner must print their name and sign.');
+        return;
+      }
+      if (!state.contractorTypedName || !state.contractorSigned) {
+        alert('Contractor must print their name and sign.');
+        return;
+      }
+      if (!state.paymentMethod) {
+        alert('Please select a payment method.');
         return;
       }
 
       state.sending = true;
-      state.sendError = null;
       render();
+      setTimeout(initSignaturePads, 100);
 
-      const pkg = PACKAGES[state.level];
-      const size = pkg.sizes[state.size];
-      const total = getTotal();
-      const today = new Date().toLocaleDateString();
+      // Build contract summary
+      const type = BUILDING_TYPES[state.buildingType];
+      const size = getSelectedSize();
+      const eave = getSelectedEave();
+      const total = calculateTotal();
 
-      const contractSummary = `
-BURNETT CUSTOMS, LLC
-MASTER SERVICE AGREEMENT - EXECUTED CONTRACT
-=============================================
+      const subject = encodeURIComponent(`Burnett Customs Contract - ${state.customer.name} - ${type.name} ${size.label}`);
+      const body = encodeURIComponent(`
+BURNETT CUSTOMS - EXECUTED CONTRACT
+====================================
 
-Contract Date: ${today}
+CONTRACT DETAILS:
+- Building Type: ${type.name}
+- Size: ${size.label}
+- Eave Height: ${eave.label}
+- Contract Sum: ${formatCurrency(total)}
 
-PARTIES:
---------
-OWNER:
-Name: ${state.ownerTypedName}
-Address: ${state.customer.address}
-Email: ${state.customer.email}
-Phone: ${state.customer.phone}
-Property: ${state.customer.propertyAddress}
-${state.customer.title ? `Title: ${state.customer.title}` : ''}
-
-CONTRACTOR:
-Burnett Customs, LLC
-101 Goodwin Avenue, Suite 580
-Victoria, TX 77901
-Phone: 361-894-3740
-Representative: ${state.contractorTypedName}, CEO
-
-PROJECT:
---------
-Building: ${pkg.name} - ${pkg.desc}
-Size: ${size.label}
-Contract Sum: $${total.toLocaleString()}
+OWNER INFORMATION:
+- Name: ${state.customer.name}
+- Phone: ${state.customer.phone}
+- Email: ${state.customer.email}
+- Address: ${state.customer.address}
+- Property Address: ${state.customer.propertyAddress || 'Same as above'}
 
 PAYMENT:
---------
-Deposit (50%): $${getDeposit().toLocaleString()} - Due at signing
-Mid-Construction (25%): $${getMidPayment().toLocaleString()} - Materials delivered
-Final (25%): $${getFinalPayment().toLocaleString()} - Substantial completion
-
-Payment Method: ${state.paymentMethod ? state.paymentMethod.toUpperCase() : 'Not specified'}
-${state.paymentReference ? `Reference: ${state.paymentReference}` : ''}
-
-ACKNOWLEDGED SECTIONS:
----------------------
-All sections have been read, understood, and initialed:
-✓ Definitions
-✓ Change Orders ($250/request, $150/hr disruption)
-✓ Plans (3 free revisions, $550 thereafter)
-✓ Consumer Products
-✓ Delays & Force Majeure
-✓ Draws & Payment Terms (10% + 10%/72hrs late fee)
-✓ Material Cost Pass-Through
-✓ Contractor Responsibilities (cost + 20% for risk/dirt/pump)
-✓ Scope of Contract (drip edge to drip edge)
-✓ Early Occupation (triggers full payment)
-✓ Warranties (1-year)
-✓ Warranty Limitations (implied warranties waived)
-✓ Insurance
-✓ Confidentiality
-✓ Default & Liability (2yr + 1 day limitation)
-✓ Binding Arbitration (FAA, Texas Property Code Ch. 27)
-✓ Jury Trial Waiver (EXPRESSLY WAIVED)
-✓ RCLA Notice (60-day certified mail requirement)
+- Method: ${state.paymentMethod}
+- First Draw Due: ${formatCurrency(Math.round(total * 0.30))} (30%)
 
 SIGNATURES:
------------
-OWNER: ${state.ownerTypedName} - SIGNED ${today}
-CONTRACTOR: ${state.contractorTypedName} - SIGNED ${today}
+- Owner: ${state.ownerTypedName} (Signed digitally)
+- Contractor: ${state.contractorTypedName} (Signed digitally)
+- Date: ${new Date().toLocaleDateString()}
 
-This contract is legally binding. Both parties have acknowledged all terms.
-      `;
+All 6 contract sections were acknowledged with checkbox and initials by the Owner.
 
-      if (EMAILJS_PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
-        try {
-          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-            to_email: state.customer.email,
-            to_name: state.customer.name,
-            from_name: 'Burnett Customs, LLC',
-            subject: `Executed MSA Contract - ${pkg.name} ${size.label}`,
-            message: contractSummary
-          });
+---
+This contract was executed digitally via Burnett Metal Building Estimator.
+Burnett Customs, LLC
+      `);
 
-          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-            to_email: 'bobby@burnettcustoms.net',
-            to_name: 'Bobby Burnett',
-            from_name: state.customer.name,
-            subject: `NEW CONTRACT EXECUTED - ${state.customer.name} - ${pkg.name} ${size.label}`,
-            message: contractSummary
-          });
-
-          state.sent = true;
-          state.sending = false;
-          render();
-        } catch (error) {
-          console.error('EmailJS error:', error);
-          openMailtoLinks(contractSummary, pkg, size, total);
-        }
-      } else {
-        openMailtoLinks(contractSummary, pkg, size, total);
-      }
-    }
-
-    function openMailtoLinks(contractSummary, pkg, size, total) {
-      const subject = encodeURIComponent(`Executed MSA Contract - ${pkg.name} ${size.label} - $${total.toLocaleString()}`);
-      const body = encodeURIComponent(contractSummary);
-
+      // Open emails
       const contractorLink = `mailto:bobby@burnettcustoms.net?subject=${subject}&body=${body}`;
       const customerLink = `mailto:${state.customer.email}?subject=${subject}&body=${body}`;
 
@@ -1586,40 +1783,39 @@ This contract is legally binding. Both parties have acknowledged all terms.
       state.sent = true;
       state.sending = false;
       render();
+      setTimeout(initSignaturePads, 100);
 
       alert('Your email client should open with the contract details. Please send both emails to complete the process.\n\nEmails to:\n• ' + state.customer.email + '\n• bobby@burnettcustoms.net');
     }
 
-    function resetApp() {
-      state.quoteStep = 0;
-      state.level = null;
-      state.size = null;
-      state.addons = {};
-      state.quantities = {};
-      state.contractStep = 0;
-      state.customer = { name: '', phone: '', email: '', address: '', propertyAddress: '', title: '' };
-
-      // Reset all section acknowledgments
-      Object.keys(state.sections).forEach(key => {
-        state.sections[key] = { checked: false, initialed: false };
-      });
-
-      state.ownerTypedName = '';
-      state.contractorTypedName = 'Bobby Burnett';
-      state.ownerSigned = false;
-      state.contractorSigned = false;
-      state.paymentMethod = null;
-      state.paymentReference = '';
-      state.sending = false;
-      state.sent = false;
-      state.sendError = null;
-
-      window.ownerPad = null;
-      window.contractorPad = null;
-      Object.keys(initialsPads).forEach(key => delete initialsPads[key]);
-
-      render();
+    // Initialize initials pads when contract sections load
+    function initCurrentSectionPads() {
+      const section = CONTRACT_SECTIONS[state.contractStep];
+      if (section && section.requiresAck) {
+        setTimeout(() => {
+          const initialsCanvas = document.getElementById('initials_' + section.id);
+          if (initialsCanvas && !initialsPads[section.id]) {
+            initialsPads[section.id] = new SignaturePad(initialsCanvas, (signed) => {
+              state.sections[section.id].initialed = signed;
+              initialsCanvas.classList.toggle('signed', signed);
+              updateNavigationState();
+            }, true);
+          }
+        }, 100);
+      }
     }
+
+    // Override render to initialize pads
+    const originalRender = render;
+    render = function() {
+      originalRender();
+      if (state.step >= 6) {
+        initCurrentSectionPads();
+        if (CONTRACT_SECTIONS[state.contractStep].id === 'signatures') {
+          setTimeout(initSignaturePads, 100);
+        }
+      }
+    };
 
     // Initial render
     render();
