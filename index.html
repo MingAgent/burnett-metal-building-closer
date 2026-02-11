@@ -35,13 +35,37 @@
 
     .initials-pad {
       border: 2px dashed #9ca3af;
-      border-radius: 4px;
+      border-radius: 8px;
       background: var(--bg-white);
       touch-action: none;
       cursor: crosshair;
-      display: inline-block;
+      display: block;
+      width: 100%;
+      max-width: 200px;
+      height: 70px;
     }
     .initials-pad.signed { border-color: var(--primary-vivid); border-style: solid; }
+
+    .initials-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: #f0f9ff;
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .initials-pad {
+        max-width: 100%;
+        height: 80px;
+      }
+      .initials-container {
+        padding: 20px 16px;
+      }
+    }
 
     .progress-step {
       width: 28px; height: 28px;
@@ -179,8 +203,17 @@
         name: '',
         phone: '',
         email: '',
-        address: '',
-        propertyAddress: ''
+        address1: '',
+        address2: '',
+        city: '',
+        state: 'TX',
+        zip: '',
+        propertySameAsMailing: false,
+        propertyAddress1: '',
+        propertyAddress2: '',
+        propertyCity: '',
+        propertyState: 'TX',
+        propertyZip: ''
       },
 
       // 7 Contract sections acknowledgments
@@ -986,6 +1019,8 @@
 
     // Contract Section: Customer Info
     function renderCustomerInfo() {
+      const states = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+
       return `
         <div class="bg-white rounded-xl p-6 shadow-lg">
           <h3 class="text-xl font-bold mb-4 text-[#003057]">👤 Customer Information</h3>
@@ -996,29 +1031,120 @@
               <input type="text" id="customerName" value="${state.customer.name}" oninput="updateCustomer('name', this.value)"
                      class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.name ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Enter full legal name">
             </div>
-            <div>
-              <label class="block font-semibold text-gray-700 mb-1">Phone Number *</label>
-              <input type="tel" id="customerPhone" value="${state.customer.phone}" oninput="updateCustomer('phone', this.value)"
-                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.phone ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="(555) 555-5555">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Phone Number *</label>
+                <input type="tel" id="customerPhone" value="${state.customer.phone}" oninput="updateCustomer('phone', this.value)"
+                       class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.phone ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="(555) 555-5555">
+              </div>
+              <div>
+                <label class="block font-semibold text-gray-700 mb-1">Email Address *</label>
+                <input type="email" id="customerEmail" value="${state.customer.email}" oninput="updateCustomer('email', this.value)"
+                       class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.email ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="you@email.com">
+              </div>
             </div>
-            <div>
-              <label class="block font-semibold text-gray-700 mb-1">Email Address *</label>
-              <input type="email" id="customerEmail" value="${state.customer.email}" oninput="updateCustomer('email', this.value)"
-                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.email ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="you@email.com">
+
+            <!-- Mailing Address Section -->
+            <div class="border-t pt-4 mt-4">
+              <h4 class="font-bold text-gray-800 mb-3">📍 Mailing Address</h4>
+              <div class="space-y-3">
+                <div>
+                  <label class="block font-semibold text-gray-700 mb-1">Address Line 1 *</label>
+                  <input type="text" value="${state.customer.address1}" oninput="updateCustomer('address1', this.value)"
+                         class="border-2 rounded-lg p-3 w-full ${state.customer.address1 ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Street address">
+                </div>
+                <div>
+                  <label class="block font-semibold text-gray-700 mb-1">Address Line 2</label>
+                  <input type="text" value="${state.customer.address2}" oninput="updateCustomer('address2', this.value)"
+                         class="border-2 rounded-lg p-3 w-full ${state.customer.address2 ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Apt, Suite, Unit, etc. (optional)">
+                </div>
+                <div class="grid grid-cols-6 gap-3">
+                  <div class="col-span-3">
+                    <label class="block font-semibold text-gray-700 mb-1">City *</label>
+                    <input type="text" value="${state.customer.city}" oninput="updateCustomer('city', this.value)"
+                           class="border-2 rounded-lg p-3 w-full ${state.customer.city ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="City">
+                  </div>
+                  <div class="col-span-1">
+                    <label class="block font-semibold text-gray-700 mb-1">State *</label>
+                    <select onchange="updateCustomer('state', this.value)"
+                            class="border-2 rounded-lg p-3 w-full ${state.customer.state ? 'border-[#05c3de]' : 'border-gray-300'}">
+                      ${states.map(s => `<option value="${s}" ${state.customer.state === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="col-span-2">
+                    <label class="block font-semibold text-gray-700 mb-1">Zip Code *</label>
+                    <input type="text" value="${state.customer.zip}" oninput="updateCustomer('zip', this.value)"
+                           class="border-2 rounded-lg p-3 w-full ${state.customer.zip ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Zip">
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block font-semibold text-gray-700 mb-1">Mailing Address *</label>
-              <input type="text" id="customerAddress" value="${state.customer.address}" oninput="updateCustomer('address', this.value)"
-                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.address ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="123 Main St, City, TX 77001">
-            </div>
-            <div>
-              <label class="block font-semibold text-gray-700 mb-1">Property Address (if different)</label>
-              <input type="text" id="propertyAddress" value="${state.customer.propertyAddress}" oninput="updateCustomer('propertyAddress', this.value)"
-                     class="border-2 rounded-lg p-3 w-full text-lg ${state.customer.propertyAddress ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Address where building will be constructed">
+
+            <!-- Property Address Section -->
+            <div class="border-t pt-4 mt-4">
+              <h4 class="font-bold text-gray-800 mb-3">🏗️ Property Address (Construction Site)</h4>
+              <div class="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                <input type="checkbox" id="sameAsMailing" ${state.customer.propertySameAsMailing ? 'checked' : ''}
+                       onchange="toggleSameAsMailing()" class="w-5 h-5 cursor-pointer">
+                <label for="sameAsMailing" class="cursor-pointer font-medium text-gray-700">
+                  Property address is the same as mailing address
+                </label>
+              </div>
+
+              ${!state.customer.propertySameAsMailing ? `
+                <div class="space-y-3">
+                  <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Address Line 1 *</label>
+                    <input type="text" value="${state.customer.propertyAddress1}" oninput="updateCustomer('propertyAddress1', this.value)"
+                           class="border-2 rounded-lg p-3 w-full ${state.customer.propertyAddress1 ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Street address">
+                  </div>
+                  <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Address Line 2</label>
+                    <input type="text" value="${state.customer.propertyAddress2}" oninput="updateCustomer('propertyAddress2', this.value)"
+                           class="border-2 rounded-lg p-3 w-full ${state.customer.propertyAddress2 ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Apt, Suite, Unit, etc. (optional)">
+                  </div>
+                  <div class="grid grid-cols-6 gap-3">
+                    <div class="col-span-3">
+                      <label class="block font-semibold text-gray-700 mb-1">City *</label>
+                      <input type="text" value="${state.customer.propertyCity}" oninput="updateCustomer('propertyCity', this.value)"
+                             class="border-2 rounded-lg p-3 w-full ${state.customer.propertyCity ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="City">
+                    </div>
+                    <div class="col-span-1">
+                      <label class="block font-semibold text-gray-700 mb-1">State *</label>
+                      <select onchange="updateCustomer('propertyState', this.value)"
+                              class="border-2 rounded-lg p-3 w-full ${state.customer.propertyState ? 'border-[#05c3de]' : 'border-gray-300'}">
+                        ${states.map(s => `<option value="${s}" ${state.customer.propertyState === s ? 'selected' : ''}>${s}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="col-span-2">
+                      <label class="block font-semibold text-gray-700 mb-1">Zip Code *</label>
+                      <input type="text" value="${state.customer.propertyZip}" oninput="updateCustomer('propertyZip', this.value)"
+                             class="border-2 rounded-lg p-3 w-full ${state.customer.propertyZip ? 'border-[#05c3de]' : 'border-gray-300'}" placeholder="Zip">
+                    </div>
+                  </div>
+                </div>
+              ` : `
+                <div class="bg-[#e0f7fa] p-4 rounded-lg border-2 border-[#05c3de]">
+                  <p class="text-[#003057]">✓ Using mailing address as property address</p>
+                </div>
+              `}
             </div>
           </div>
         </div>
       `;
+    }
+
+    function toggleSameAsMailing() {
+      state.customer.propertySameAsMailing = !state.customer.propertySameAsMailing;
+      if (state.customer.propertySameAsMailing) {
+        // Copy mailing address to property address
+        state.customer.propertyAddress1 = state.customer.address1;
+        state.customer.propertyAddress2 = state.customer.address2;
+        state.customer.propertyCity = state.customer.city;
+        state.customer.propertyState = state.customer.state;
+        state.customer.propertyZip = state.customer.zip;
+      }
+      render();
     }
 
     // Contract Section 1: Project Overview (consolidated)
@@ -1447,14 +1573,15 @@
             </label>
           </div>
 
-          <div class="flex items-center gap-4">
-            <div>
-              <label class="block text-sm font-semibold mb-1">Initials:</label>
-              <canvas id="initials_${sectionId}" width="80" height="40"
-                      class="initials-pad ${sectionData.initialed ? 'signed' : ''}"></canvas>
-            </div>
-            <button onclick="clearInitials('${sectionId}')" class="text-sm text-gray-500 hover:text-gray-700 mt-4">Clear</button>
-            ${isComplete ? '<span class="text-green-600 font-semibold ml-auto">✓ Section Complete</span>' : ''}
+          <div class="initials-container">
+            <label class="block text-sm font-semibold mb-2 text-center">Initial Below to Acknowledge:</label>
+            <canvas id="initials_${sectionId}" width="200" height="70"
+                    class="initials-pad ${sectionData.initialed ? 'signed' : ''}"></canvas>
+            <button onclick="clearInitials('${sectionId}')"
+                    class="mt-3 px-4 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50">
+              Clear Initials
+            </button>
+            ${isComplete ? '<div class="mt-3 text-green-600 font-semibold text-center">✓ Section Complete</div>' : ''}
           </div>
         </div>
       `;
@@ -1531,9 +1658,22 @@
 
       // Validate customer info
       if (section.id === 'info') {
-        if (!state.customer.name || !state.customer.phone || !state.customer.email || !state.customer.address) {
-          document.getElementById('sectionWarning').textContent = 'Please fill in all required fields.';
+        // Check basic info
+        if (!state.customer.name || !state.customer.phone || !state.customer.email) {
+          document.getElementById('sectionWarning').textContent = 'Please fill in name, phone, and email.';
           return;
+        }
+        // Check mailing address
+        if (!state.customer.address1 || !state.customer.city || !state.customer.state || !state.customer.zip) {
+          document.getElementById('sectionWarning').textContent = 'Please fill in complete mailing address.';
+          return;
+        }
+        // Check property address (if not same as mailing)
+        if (!state.customer.propertySameAsMailing) {
+          if (!state.customer.propertyAddress1 || !state.customer.propertyCity || !state.customer.propertyState || !state.customer.propertyZip) {
+            document.getElementById('sectionWarning').textContent = 'Please fill in complete property address or check "same as mailing".';
+            return;
+          }
         }
       }
 
@@ -1752,8 +1892,8 @@ OWNER INFORMATION:
 - Name: ${state.customer.name}
 - Phone: ${state.customer.phone}
 - Email: ${state.customer.email}
-- Address: ${state.customer.address}
-- Property Address: ${state.customer.propertyAddress || 'Same as above'}
+- Mailing Address: ${state.customer.address1}${state.customer.address2 ? ', ' + state.customer.address2 : ''}, ${state.customer.city}, ${state.customer.state} ${state.customer.zip}
+- Property Address: ${state.customer.propertySameAsMailing ? 'Same as mailing address' : state.customer.propertyAddress1 + (state.customer.propertyAddress2 ? ', ' + state.customer.propertyAddress2 : '') + ', ' + state.customer.propertyCity + ', ' + state.customer.propertyState + ' ' + state.customer.propertyZip}
 
 PAYMENT:
 - Method: ${state.paymentMethod}
