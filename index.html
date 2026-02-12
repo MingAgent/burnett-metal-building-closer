@@ -120,20 +120,20 @@
 
     .btn-secondary {
       background: var(--primary-vivid);
-      color: var(--primary-dark);
+      color: #003057 !important;
       font-weight: 600;
       transition: background 0.2s;
     }
-    .btn-secondary:hover { background: #04b5cc; }
+    .btn-secondary:hover { background: #04b5cc; color: #003057 !important; }
 
     .btn-active {
       background: var(--primary-bright);
-      color: var(--primary-dark);
+      color: #003057 !important;
       font-weight: 700;
       transition: all 0.2s;
       box-shadow: 0 4px 15px rgba(4, 206, 234, 0.4);
     }
-    .btn-active:hover { background: #03b8d4; transform: translateY(-1px); }
+    .btn-active:hover { background: #03b8d4; transform: translateY(-1px); color: #003057 !important; }
 
     .header-bar {
       background: var(--primary-bright);
@@ -1062,9 +1062,9 @@
                   <p class="text-gray-500 text-sm">$2,890 each</p>
                 </div>
                 <div class="flex items-center gap-3">
-                  <button onclick="adjustDoor('rollUp12', -1)" class="w-10 h-10 rounded-full bg-gray-200 font-bold text-xl">−</button>
+                  <button onclick="adjustDoor('rollUp12', -1)" class="w-10 h-10 rounded-full bg-gray-200 text-[#003057] font-bold text-xl">−</button>
                   <span class="text-2xl font-bold w-8 text-center">${state.doors.rollUp12.qty}</span>
-                  <button onclick="adjustDoor('rollUp12', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-white font-bold text-xl">+</button>
+                  <button onclick="adjustDoor('rollUp12', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-[#003057] font-bold text-xl">+</button>
                 </div>
               </div>
               ${state.doors.rollUp12.qty > 0 ? `
@@ -1097,9 +1097,9 @@
                   <p class="text-gray-500 text-sm">$1,045 each</p>
                 </div>
                 <div class="flex items-center gap-3">
-                  <button onclick="adjustDoor('walkthrough', -1)" class="w-10 h-10 rounded-full bg-gray-200 font-bold text-xl">−</button>
+                  <button onclick="adjustDoor('walkthrough', -1)" class="w-10 h-10 rounded-full bg-gray-200 text-[#003057] font-bold text-xl">−</button>
                   <span class="text-2xl font-bold w-8 text-center">${state.doors.walkthrough.qty}</span>
-                  <button onclick="adjustDoor('walkthrough', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-white font-bold text-xl">+</button>
+                  <button onclick="adjustDoor('walkthrough', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-[#003057] font-bold text-xl">+</button>
                 </div>
               </div>
             </div>
@@ -1169,10 +1169,10 @@
                           </div>
                           <div class="flex items-center gap-3">
                             <button onclick="adjustAddon('${item.id}', -1, ${item.maxQty || 10})"
-                                    class="w-9 h-9 rounded-full bg-gray-200 font-bold text-lg ${qty === 0 ? 'opacity-50' : ''}">−</button>
+                                    class="w-9 h-9 rounded-full bg-gray-200 text-[#003057] font-bold text-lg ${qty === 0 ? 'opacity-50' : ''}">−</button>
                             <span class="text-xl font-bold w-6 text-center">${qty}</span>
                             <button onclick="adjustAddon('${item.id}', 1, ${item.maxQty || 10})"
-                                    class="w-9 h-9 rounded-full bg-[#05c3de] text-white font-bold text-lg">+</button>
+                                    class="w-9 h-9 rounded-full bg-[#05c3de] text-[#003057] font-bold text-lg">+</button>
                           </div>
                         </div>
                       `;
