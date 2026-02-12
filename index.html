@@ -265,6 +265,12 @@
     const state = {
       // Estimator flow
       step: 0, // 0=type, 1=size, 2=eave, 3=doors, 4=addons, 5=summary, 6+=contract
+
+      // Multiple buildings support
+      buildings: [],  // Array of building configs
+      currentBuildingIndex: 0,  // Which building we're editing
+
+      // Current building being configured (will be pushed to buildings array)
       buildingType: null, // 'poleBarn', 'carport', 'boltUp'
       buildingSize: null,
       eaveHeight: null,
@@ -530,7 +536,8 @@
       return EAVE_HEIGHTS.find(e => e.id === state.eaveHeight);
     }
 
-    function calculateTotal() {
+    // Calculate total for current building config
+    function calculateCurrentBuildingTotal() {
       const size = getSelectedSize();
       const eave = getSelectedEave();
       if (!size || !eave) return 0;
@@ -556,6 +563,111 @@
       });
 
       return total;
+    }
+
+    // Calculate total for a specific building in the array
+    function calculateBuildingTotal(building) {
+      const size = BUILDING_SIZES.find(s => s.id === building.buildingSize);
+      const eave = EAVE_HEIGHTS.find(e => e.id === building.eaveHeight);
+      if (!size || !eave) return 0;
+
+      let total = size.startingPrice + eave.modifier;
+      total += building.doors.rollUp12.qty * 2890;
+      total += building.doors.walkthrough.qty * 1045;
+
+      ADDONS.forEach(cat => {
+        cat.items.forEach(item => {
+          const qty = building.addons[item.id] || 0;
+          if (qty > 0 && !item.id.startsWith('door_')) {
+            if (item.perSqFt) {
+              total += item.perSqFt * size.sqft;
+            } else {
+              total += item.price * qty;
+            }
+          }
+        });
+      });
+
+      return total;
+    }
+
+    // Calculate grand total of all buildings
+    function calculateTotal() {
+      let total = 0;
+      // Add all saved buildings
+      state.buildings.forEach(building => {
+        total += calculateBuildingTotal(building);
+      });
+      // Add current building if configured (and not already saved)
+      if (state.buildingType && state.buildingSize && state.eaveHeight) {
+        // Check if current config is already in buildings array
+        const isEditing = state.buildings.length > 0 && state.currentBuildingIndex < state.buildings.length;
+        if (!isEditing) {
+          total += calculateCurrentBuildingTotal();
+        }
+      }
+      return total;
+    }
+
+    // Save current building configuration to buildings array
+    function saveCurrentBuilding() {
+      const buildingConfig = {
+        buildingType: state.buildingType,
+        buildingSize: state.buildingSize,
+        eaveHeight: state.eaveHeight,
+        doors: JSON.parse(JSON.stringify(state.doors)),
+        addons: JSON.parse(JSON.stringify(state.addons))
+      };
+
+      if (state.currentBuildingIndex < state.buildings.length) {
+        // Update existing building
+        state.buildings[state.currentBuildingIndex] = buildingConfig;
+      } else {
+        // Add new building
+        state.buildings.push(buildingConfig);
+      }
+    }
+
+    // Add another building
+    function addAnotherBuilding() {
+      // Save current building first
+      saveCurrentBuilding();
+      // Reset for new building
+      state.currentBuildingIndex = state.buildings.length;
+      state.buildingType = null;
+      state.buildingSize = null;
+      state.eaveHeight = null;
+      state.doors = { rollUp12: { qty: 0, placement: 'gabled' }, walkthrough: { qty: 0 } };
+      state.addons = {};
+      state.step = 0;
+      render();
+    }
+
+    // Edit an existing building
+    function editBuilding(index) {
+      const building = state.buildings[index];
+      state.currentBuildingIndex = index;
+      state.buildingType = building.buildingType;
+      state.buildingSize = building.buildingSize;
+      state.eaveHeight = building.eaveHeight;
+      state.doors = JSON.parse(JSON.stringify(building.doors));
+      state.addons = JSON.parse(JSON.stringify(building.addons));
+      state.step = 0;
+      render();
+    }
+
+    // Remove a building
+    function removeBuilding(index) {
+      if (confirm('Remove this building from the order?')) {
+        state.buildings.splice(index, 1);
+        if (state.buildings.length === 0) {
+          // Reset to empty state
+          state.currentBuildingIndex = 0;
+        } else {
+          state.currentBuildingIndex = Math.min(state.currentBuildingIndex, state.buildings.length - 1);
+        }
+        render();
+      }
     }
 
     // ==================== RENDER FUNCTIONS ====================
@@ -1012,31 +1124,43 @@
 
     // Step 5: Summary
     function renderSummary() {
-      const type = BUILDING_TYPES[state.buildingType];
-      const size = getSelectedSize();
-      const eave = getSelectedEave();
-      const total = calculateTotal();
-
-      let lineItems = [];
-      lineItems.push({ name: `${type.name} - ${size.label} × ${eave.label}`, price: size.startingPrice + eave.modifier });
-
-      if (state.doors.rollUp12.qty > 0) {
-        lineItems.push({ name: `12'×12' Roll-Up Door × ${state.doors.rollUp12.qty}`, price: state.doors.rollUp12.qty * 2890 });
-      }
-      if (state.doors.walkthrough.qty > 0) {
-        lineItems.push({ name: `Walkthrough Door × ${state.doors.walkthrough.qty}`, price: state.doors.walkthrough.qty * 1045 });
+      // Save current building to array if not already there
+      if (state.buildingType && state.buildingSize && state.eaveHeight) {
+        saveCurrentBuilding();
       }
 
-      ADDONS.forEach(cat => {
-        cat.items.forEach(item => {
-          const qty = state.addons[item.id] || 0;
-          if (qty > 0 && !item.id.startsWith('door_')) {
-            let price = item.perSqFt ? item.perSqFt * size.sqft : item.price * qty;
-            const displayName = qty > 1 ? `${item.name} × ${qty}` : item.name;
-            lineItems.push({ name: displayName, price });
-          }
+      const grandTotal = state.buildings.reduce((sum, b) => sum + calculateBuildingTotal(b), 0);
+      const buildingCount = state.buildings.length;
+
+      // Generate line items for each building
+      function getBuildingLineItems(building, index) {
+        const type = BUILDING_TYPES[building.buildingType];
+        const size = BUILDING_SIZES.find(s => s.id === building.buildingSize);
+        const eave = EAVE_HEIGHTS.find(e => e.id === building.eaveHeight);
+        let items = [];
+
+        items.push({ name: `${type.name} - ${size.label} × ${eave.label}`, price: size.startingPrice + eave.modifier });
+
+        if (building.doors.rollUp12.qty > 0) {
+          items.push({ name: `  12'×12' Roll-Up Door × ${building.doors.rollUp12.qty}`, price: building.doors.rollUp12.qty * 2890 });
+        }
+        if (building.doors.walkthrough.qty > 0) {
+          items.push({ name: `  Walkthrough Door × ${building.doors.walkthrough.qty}`, price: building.doors.walkthrough.qty * 1045 });
+        }
+
+        ADDONS.forEach(cat => {
+          cat.items.forEach(item => {
+            const qty = building.addons[item.id] || 0;
+            if (qty > 0 && !item.id.startsWith('door_')) {
+              let price = item.perSqFt ? item.perSqFt * size.sqft : item.price * qty;
+              const displayName = qty > 1 ? `  ${item.name} × ${qty}` : `  ${item.name}`;
+              items.push({ name: displayName, price });
+            }
+          });
         });
-      });
+
+        return items;
+      }
 
       return `
         <header class="header-bar p-4 shadow-lg">
@@ -1045,51 +1169,92 @@
               ${LOGO_SVG_SMALL}
               <div>
                 <h1 class="text-lg font-bold text-[#003057]">Burnett Customs</h1>
-                <p class="text-[#003057] text-sm opacity-80">Estimate Summary</p>
+                <p class="text-[#003057] text-sm opacity-80">Order Summary</p>
               </div>
             </div>
             <div class="text-right">
-              <div class="text-2xl font-bold text-[#003057]">${formatCurrency(total)}</div>
-              <div class="text-[#003057] text-xs opacity-80">Estimated Total</div>
+              <div class="text-2xl font-bold text-[#003057]">${formatCurrency(grandTotal)}</div>
+              <div class="text-[#003057] text-xs opacity-80">${buildingCount} Building${buildingCount !== 1 ? 's' : ''} Total</div>
             </div>
           </div>
         </header>
 
         <main class="max-w-2xl mx-auto p-4">
-          <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="bg-[#003057] text-white p-4">
-              <h2 class="text-xl font-bold">Your Building Estimate</h2>
-              <p class="text-[#05c3de] text-sm">${type.name} - ${size.label} × ${eave.label}</p>
-            </div>
+          <!-- Building Cards -->
+          ${state.buildings.map((building, index) => {
+            const type = BUILDING_TYPES[building.buildingType];
+            const size = BUILDING_SIZES.find(s => s.id === building.buildingSize);
+            const eave = EAVE_HEIGHTS.find(e => e.id === building.eaveHeight);
+            const buildingTotal = calculateBuildingTotal(building);
+            const lineItems = getBuildingLineItems(building, index);
 
-            <div class="p-4">
-              <table class="w-full">
-                <tbody>
-                  ${lineItems.map(item => `
-                    <tr class="border-b">
-                      <td class="py-3">${item.name}</td>
-                      <td class="py-3 text-right font-semibold">${formatCurrency(item.price)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-                <tfoot>
-                  <tr class="bg-gray-50">
-                    <td class="py-4 font-bold text-lg">Estimated Total</td>
-                    <td class="py-4 text-right font-bold text-xl text-[#003057]">${formatCurrency(total)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            return `
+              <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-4">
+                <div class="bg-[#003057] text-white p-4 flex justify-between items-center">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="bg-[#05c3de] text-[#003057] text-xs font-bold px-2 py-1 rounded">Building ${index + 1}</span>
+                      <span class="text-sm opacity-80">Qty: 1</span>
+                    </div>
+                    <h2 class="text-lg font-bold mt-1">${type.name} - ${size.label} × ${eave.label}</h2>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xl font-bold">${formatCurrency(buildingTotal)}</div>
+                  </div>
+                </div>
 
-            <div class="bg-[#e0f7fa] p-4 border-t">
-              <p class="text-sm text-gray-700">
-                <strong>Note:</strong> This is an estimate. Final pricing will be confirmed in the contract.
-                Prices shown are "starting at" prices and may vary based on site conditions and final specifications.
-              </p>
+                <div class="p-4">
+                  <table class="w-full text-sm">
+                    <tbody>
+                      ${lineItems.map(item => `
+                        <tr class="border-b border-gray-100">
+                          <td class="py-2 text-gray-700">${item.name}</td>
+                          <td class="py-2 text-right font-medium">${formatCurrency(item.price)}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="px-4 pb-4 flex gap-2">
+                  <button onclick="editBuilding(${index})" class="flex-1 py-2 text-sm font-semibold text-[#003057] border-2 border-[#003057] rounded-lg hover:bg-gray-50">
+                    ✏️ Edit
+                  </button>
+                  ${state.buildings.length > 1 ? `
+                    <button onclick="removeBuilding(${index})" class="py-2 px-4 text-sm font-semibold text-red-600 border-2 border-red-300 rounded-lg hover:bg-red-50">
+                      🗑️
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+
+          <!-- Add Another Building Button -->
+          <button onclick="addAnotherBuilding()"
+                  class="w-full py-4 mb-4 border-2 border-dashed border-[#05c3de] rounded-xl text-[#003057] font-semibold hover:bg-[#e0f7fa] transition-colors">
+            ➕ Add Another Building
+          </button>
+
+          <!-- Grand Total -->
+          <div class="bg-[#003057] text-white rounded-xl p-4 mb-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <div class="text-sm opacity-80">${buildingCount} Building${buildingCount !== 1 ? 's' : ''}</div>
+                <div class="text-lg font-bold">Grand Total</div>
+              </div>
+              <div class="text-3xl font-bold">${formatCurrency(grandTotal)}</div>
             </div>
           </div>
 
-          <div class="mt-6 flex justify-between">
+          <div class="bg-[#e0f7fa] rounded-xl p-4 mb-6">
+            <p class="text-sm text-gray-700">
+              <strong>Note:</strong> This is an estimate. Final pricing will be confirmed in the contract.
+              Prices shown are "starting at" prices and may vary based on site conditions and final specifications.
+            </p>
+          </div>
+
+          <div class="flex justify-between">
             <button onclick="goBack()" class="py-3 px-6 rounded-xl font-semibold border-2 border-gray-300 text-gray-600 hover:bg-gray-50">
               ← Back
             </button>
@@ -1808,9 +1973,24 @@
 
     function goBack() {
       if (state.step > 0) {
-        state.step--;
-        if (state.buildingType === 'boltUp' && state.step === 0) {
-          state.buildingType = null;
+        // Going back from summary - load the last building for editing
+        if (state.step === 5 && state.buildings.length > 0) {
+          const lastIndex = state.buildings.length - 1;
+          const building = state.buildings[lastIndex];
+          state.currentBuildingIndex = lastIndex;
+          state.buildingType = building.buildingType;
+          state.buildingSize = building.buildingSize;
+          state.eaveHeight = building.eaveHeight;
+          state.doors = JSON.parse(JSON.stringify(building.doors));
+          state.addons = JSON.parse(JSON.stringify(building.addons));
+          // Remove from array since we're editing
+          state.buildings.pop();
+          state.step = 4; // Go to addons
+        } else {
+          state.step--;
+          if (state.buildingType === 'boltUp' && state.step === 0) {
+            state.buildingType = null;
+          }
         }
       }
       render();
@@ -2135,23 +2315,39 @@ Submitted via Burnett Metal Building Estimator
       render();
       setTimeout(initSignaturePads, 100);
 
-      // Build contract summary
-      const type = BUILDING_TYPES[state.buildingType];
-      const size = getSelectedSize();
-      const eave = getSelectedEave();
+      // Build contract summary for all buildings
       const total = calculateTotal();
+      const buildingCount = state.buildings.length;
 
-      const subject = encodeURIComponent(`Burnett Customs Contract - ${state.customer.name} - ${type.name} ${size.label}`);
+      // Build buildings summary text
+      let buildingsSummary = '';
+      state.buildings.forEach((building, index) => {
+        const type = BUILDING_TYPES[building.buildingType];
+        const size = BUILDING_SIZES.find(s => s.id === building.buildingSize);
+        const eave = EAVE_HEIGHTS.find(e => e.id === building.eaveHeight);
+        const buildingTotal = calculateBuildingTotal(building);
+        buildingsSummary += `
+BUILDING ${index + 1}:
+- Type: ${type.name}
+- Size: ${size.label}
+- Eave Height: ${eave.label}
+- Subtotal: ${formatCurrency(buildingTotal)}
+`;
+      });
+
+      const firstBuilding = state.buildings[0];
+      const firstType = BUILDING_TYPES[firstBuilding.buildingType];
+      const firstSize = BUILDING_SIZES.find(s => s.id === firstBuilding.buildingSize);
+
+      const subject = encodeURIComponent(`Burnett Customs Contract - ${state.customer.name} - ${buildingCount} Building${buildingCount !== 1 ? 's' : ''}`);
       const body = encodeURIComponent(`
 BURNETT CUSTOMS - EXECUTED CONTRACT
 ====================================
 
-CONTRACT DETAILS:
-- Building Type: ${type.name}
-- Size: ${size.label}
-- Eave Height: ${eave.label}
+ORDER SUMMARY:
+- Number of Buildings: ${buildingCount}
 - Contract Sum: ${formatCurrency(total)}
-
+${buildingsSummary}
 OWNER INFORMATION:
 - Name: ${state.customer.name}
 - Phone: ${state.customer.phone}
@@ -2194,11 +2390,9 @@ Burnett Customs, LLC
 
     // Print full contract
     function printContract() {
-      const type = BUILDING_TYPES[state.buildingType];
-      const size = getSelectedSize();
-      const eave = getSelectedEave();
       const total = calculateTotal();
       const today = new Date().toLocaleDateString();
+      const buildingCount = state.buildings.length;
 
       // Get initials data URLs
       const initialsData = {};
@@ -2268,16 +2462,8 @@ Burnett Customs, LLC
             <div class="summary-box">
               <div class="summary-grid">
                 <div class="summary-item">
-                  <strong>Building Type</strong>
-                  ${type.name}
-                </div>
-                <div class="summary-item">
-                  <strong>Building Size</strong>
-                  ${size.label}
-                </div>
-                <div class="summary-item">
-                  <strong>Eave Height</strong>
-                  ${eave.label}
+                  <strong>Number of Buildings</strong>
+                  ${buildingCount}
                 </div>
                 <div class="summary-item">
                   <strong>Contract Sum</strong>
@@ -2296,13 +2482,21 @@ Burnett Customs, LLC
                   }
                 </div>
               </div>
+              <!-- Buildings List -->
+              ${state.buildings.map((building, index) => {
+                const bType = BUILDING_TYPES[building.buildingType];
+                const bSize = BUILDING_SIZES.find(s => s.id === building.buildingSize);
+                const bEave = EAVE_HEIGHTS.find(e => e.id === building.eaveHeight);
+                const bTotal = calculateBuildingTotal(building);
+                return '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;"><strong style="color: #003057;">Building ' + (index + 1) + ':</strong> ' + bType.name + ' - ' + bSize.label + ' × ' + bEave.label + ' <span style="float: right;">' + formatCurrency(bTotal) + '</span></div>';
+              }).join('')}
             </div>
 
             <!-- Section 1: Project Overview -->
             <div class="section">
               <h3>1. Project Overview</h3>
-              <p><strong>Scope of Work:</strong> Contractor shall furnish all labor, materials, equipment, and services necessary to construct a ${type.name} metal building at the property address specified above, in accordance with the specifications selected by Owner in this Contract.</p>
-              <p><strong>Building Specifications:</strong> ${size.label} with ${eave.label} eave height. Final specifications subject to engineering approval.</p>
+              <p><strong>Scope of Work:</strong> Contractor shall furnish all labor, materials, equipment, and services necessary to construct ${buildingCount} metal building${buildingCount !== 1 ? 's' : ''} at the property address specified above, in accordance with the specifications selected by Owner in this Contract.</p>
+              <p><strong>Building Specifications:</strong> See building list above. Final specifications subject to engineering approval.</p>
               <p><strong>Contract Sum:</strong> ${formatCurrency(total)} - This is the total amount payable by Owner to Contractor for the complete and satisfactory performance of the Work described herein.</p>
               <div class="ack-line">
                 <span>✓ Owner acknowledges reading and understanding this section</span>
