@@ -526,6 +526,169 @@
       { id: 'signatures', title: '7. Final Acknowledgment', icon: '✍️', requiresAck: false }
     ];
 
+    // Bill of Materials generator
+    function generateBOM(building, index) {
+      const type = BUILDING_TYPES[building.buildingType];
+      const size = BUILDING_SIZES.find(s => s.id === building.buildingSize);
+      const eave = EAVE_HEIGHTS.find(e => e.id === building.eaveHeight);
+      const qty = building.qty || 1;
+
+      // Parse dimensions from size label
+      const dims = size.label.replace(/'/g, '').split(' × ');
+      const width = parseInt(dims[0]);
+      const length = parseInt(dims[1]);
+      const height = parseInt(eave.id);
+      const sqft = size.sqft;
+      const perimeterFt = (width + length) * 2;
+      const roofSqFt = sqft * 1.1; // 10% for pitch
+      const wallSqFt = perimeterFt * height;
+
+      let materials = [];
+      let lineNum = 1;
+
+      // STRUCTURAL STEEL
+      materials.push({ section: 'STRUCTURAL STEEL', items: [] });
+      const steelSection = materials[materials.length - 1].items;
+
+      // Columns (corners + intermediate every 10ft)
+      const columnsPerSide = Math.ceil(length / 10) + 1;
+      const totalColumns = (columnsPerSide * 2) + 4;
+      steelSection.push({ line: lineNum++, item: `Steel Columns (${height}ft W-Section)`, qty: totalColumns, unit: 'EA', notes: 'Primary structural columns' });
+
+      // Rafters
+      const rafterCount = columnsPerSide;
+      steelSection.push({ line: lineNum++, item: `Steel Rafters (${width}ft span)`, qty: rafterCount, unit: 'EA', notes: 'Roof support' });
+
+      // Purlins (roof)
+      const purlinRows = Math.ceil(length / 5);
+      const purlinsPerRow = Math.ceil(width / 5);
+      steelSection.push({ line: lineNum++, item: 'Roof Purlins (C-Section)', qty: purlinRows * purlinsPerRow, unit: 'EA', notes: '5ft O.C. spacing' });
+
+      // Girts (wall)
+      const girtRows = Math.ceil(height / 5);
+      const girtsTotal = girtRows * Math.ceil(perimeterFt / 25);
+      steelSection.push({ line: lineNum++, item: 'Wall Girts (C-Section)', qty: girtsTotal, unit: 'EA', notes: 'Wall support' });
+
+      // Base plates and anchor bolts
+      steelSection.push({ line: lineNum++, item: 'Column Base Plates', qty: totalColumns, unit: 'EA', notes: '1/2" thick steel' });
+      steelSection.push({ line: lineNum++, item: 'Anchor Bolt Sets (4-bolt)', qty: totalColumns, unit: 'SET', notes: '3/4" x 18" J-bolts' });
+
+      // ROOFING
+      materials.push({ section: 'ROOFING', items: [] });
+      const roofSection = materials[materials.length - 1].items;
+      const roofPanels = Math.ceil(roofSqFt / 36); // 3ft wide panels
+      roofSection.push({ line: lineNum++, item: '26 Gauge Roof Panels (3ft × 12ft)', qty: roofPanels, unit: 'EA', notes: 'Galvalume Plus' });
+      roofSection.push({ line: lineNum++, item: 'Ridge Cap (10ft sections)', qty: Math.ceil(length / 10), unit: 'EA', notes: '' });
+      roofSection.push({ line: lineNum++, item: 'Roof Panel Screws (#14 × 1")', qty: roofPanels * 40, unit: 'EA', notes: 'Self-drilling w/ washer' });
+      roofSection.push({ line: lineNum++, item: 'Butyl Tape Sealant (50ft roll)', qty: Math.ceil(length / 25), unit: 'ROLL', notes: '' });
+
+      // WALL PANELS
+      materials.push({ section: 'WALL PANELS', items: [] });
+      const wallSection = materials[materials.length - 1].items;
+      const wallPanels = Math.ceil(wallSqFt / 36);
+      wallSection.push({ line: lineNum++, item: '26 Gauge Wall Panels (3ft × 12ft)', qty: wallPanels, unit: 'EA', notes: 'Color: Customer choice' });
+      wallSection.push({ line: lineNum++, item: 'Wall Panel Screws (#14 × 1")', qty: wallPanels * 35, unit: 'EA', notes: 'Color matched' });
+
+      // TRIM & FLASHING
+      materials.push({ section: 'TRIM & FLASHING', items: [] });
+      const trimSection = materials[materials.length - 1].items;
+      trimSection.push({ line: lineNum++, item: 'Corner Trim (10ft sections)', qty: Math.ceil(height * 4 / 10), unit: 'EA', notes: '' });
+      trimSection.push({ line: lineNum++, item: 'Base Trim (10ft sections)', qty: Math.ceil(perimeterFt / 10), unit: 'EA', notes: '' });
+      trimSection.push({ line: lineNum++, item: 'Eave Trim (10ft sections)', qty: Math.ceil(length * 2 / 10), unit: 'EA', notes: '' });
+      trimSection.push({ line: lineNum++, item: 'Rake Trim (10ft sections)', qty: Math.ceil(width * 2 / 10), unit: 'EA', notes: '' });
+      trimSection.push({ line: lineNum++, item: 'J-Trim (10ft sections)', qty: 20, unit: 'EA', notes: 'Around openings' });
+
+      // DOORS
+      if (building.doors.rollUp12.qty > 0 || building.doors.walkthrough.qty > 0) {
+        materials.push({ section: 'DOORS', items: [] });
+        const doorSection = materials[materials.length - 1].items;
+        if (building.doors.rollUp12.qty > 0) {
+          doorSection.push({ line: lineNum++, item: "12' × 12' Roll-Up Door (Commercial)", qty: building.doors.rollUp12.qty, unit: 'EA', notes: 'Wind-rated, insulated' });
+          doorSection.push({ line: lineNum++, item: "Roll-Up Door Frame Kit (12')", qty: building.doors.rollUp12.qty, unit: 'SET', notes: '' });
+        }
+        if (building.doors.walkthrough.qty > 0) {
+          doorSection.push({ line: lineNum++, item: "3' × 7' Steel Walkthrough Door", qty: building.doors.walkthrough.qty, unit: 'EA', notes: 'Pre-hung w/ hardware' });
+          doorSection.push({ line: lineNum++, item: 'Walkthrough Door Frame', qty: building.doors.walkthrough.qty, unit: 'SET', notes: '' });
+        }
+      }
+
+      // WINDOWS
+      const win3x3 = building.addons['win_3x3'] || 0;
+      const win4x4 = building.addons['win_4x4'] || 0;
+      if (win3x3 > 0 || win4x4 > 0) {
+        materials.push({ section: 'WINDOWS', items: [] });
+        const winSection = materials[materials.length - 1].items;
+        if (win3x3 > 0) {
+          winSection.push({ line: lineNum++, item: "3' × 3' Fixed Window (Insulated)", qty: win3x3, unit: 'EA', notes: 'Aluminum frame' });
+        }
+        if (win4x4 > 0) {
+          winSection.push({ line: lineNum++, item: "4' × 4' Slider Window (Insulated)", qty: win4x4, unit: 'EA', notes: 'Aluminum frame, screens' });
+        }
+      }
+
+      // INSULATION
+      const hasWallIns = building.addons['wall_insulation'] || 0;
+      const hasRoofIns = building.addons['roof_insulation'] || 0;
+      if (hasWallIns || hasRoofIns) {
+        materials.push({ section: 'INSULATION', items: [] });
+        const insSection = materials[materials.length - 1].items;
+        if (hasWallIns) {
+          const wallInsRolls = Math.ceil(wallSqFt / 500);
+          insSection.push({ line: lineNum++, item: 'Wall Insulation (R-13 Faced)', qty: wallInsRolls, unit: 'ROLL', notes: '500 sq ft per roll' });
+          insSection.push({ line: lineNum++, item: 'Insulation Support Bands', qty: Math.ceil(wallSqFt / 100), unit: 'EA', notes: '' });
+        }
+        if (hasRoofIns) {
+          const roofInsRolls = Math.ceil(roofSqFt / 500);
+          insSection.push({ line: lineNum++, item: 'Roof Insulation (R-19 Faced)', qty: roofInsRolls, unit: 'ROLL', notes: '500 sq ft per roll' });
+        }
+      }
+
+      // GUTTERS
+      if (building.addons['gutters']) {
+        materials.push({ section: 'GUTTERS & DRAINAGE', items: [] });
+        const gutterSection = materials[materials.length - 1].items;
+        gutterSection.push({ line: lineNum++, item: '5" K-Style Gutters (10ft)', qty: Math.ceil(length * 2 / 10), unit: 'EA', notes: 'Color matched' });
+        gutterSection.push({ line: lineNum++, item: '3" × 4" Downspouts (10ft)', qty: Math.ceil(length / 25) * 2, unit: 'EA', notes: '' });
+        gutterSection.push({ line: lineNum++, item: 'Gutter Brackets', qty: Math.ceil(length * 2 / 3), unit: 'EA', notes: '' });
+        gutterSection.push({ line: lineNum++, item: 'Downspout Brackets', qty: Math.ceil(length / 25) * 4, unit: 'EA', notes: '' });
+      }
+
+      // WAINSCOT
+      const wainscotQty = building.addons['wainscot'] || 0;
+      if (wainscotQty > 0) {
+        materials.push({ section: 'WAINSCOT', items: [] });
+        const wainSection = materials[materials.length - 1].items;
+        const wainSqFt = (wainscotQty === 4 ? perimeterFt : (wainscotQty * (wainscotQty <= 2 ? length : width))) * 3;
+        const wainPanels = Math.ceil(wainSqFt / 36);
+        wainSection.push({ line: lineNum++, item: 'Wainscot Panels (3ft × 10ft)', qty: wainPanels, unit: 'EA', notes: '3ft height' });
+        wainSection.push({ line: lineNum++, item: 'Wainscot Cap Trim (10ft)', qty: Math.ceil(wainSqFt / 30), unit: 'EA', notes: '' });
+      }
+
+      // CONCRETE (if selected)
+      if (building.addons['concrete_slab']) {
+        materials.push({ section: 'CONCRETE & FOUNDATION', items: [] });
+        const concreteSection = materials[materials.length - 1].items;
+        const cubicYards = Math.ceil((sqft * 4/12) / 27 * 1.1);
+        const rebarFt = Math.ceil(sqft / 16 * 2);
+        concreteSection.push({ line: lineNum++, item: 'Concrete (4000 PSI)', qty: cubicYards, unit: 'CY', notes: '4" thick slab' });
+        concreteSection.push({ line: lineNum++, item: '#4 Rebar (20ft lengths)', qty: Math.ceil(rebarFt / 20), unit: 'EA', notes: '16" O.C. grid' });
+        concreteSection.push({ line: lineNum++, item: 'Rebar Chairs', qty: Math.ceil(sqft / 16), unit: 'EA', notes: '' });
+        concreteSection.push({ line: lineNum++, item: 'Vapor Barrier (6 mil)', qty: Math.ceil(sqft / 1500), unit: 'ROLL', notes: '1500 sq ft roll' });
+        concreteSection.push({ line: lineNum++, item: 'Expansion Joint Material', qty: Math.ceil(perimeterFt / 50), unit: 'ROLL', notes: '' });
+        concreteSection.push({ line: lineNum++, item: 'Form Boards (2×4×12)', qty: Math.ceil(perimeterFt / 12) * 2, unit: 'EA', notes: 'Perimeter forms' });
+      }
+
+      // HARDWARE & FASTENERS
+      materials.push({ section: 'HARDWARE & FASTENERS', items: [] });
+      const hwSection = materials[materials.length - 1].items;
+      hwSection.push({ line: lineNum++, item: 'Structural Bolts (3/4" × 2")', qty: totalColumns * 8, unit: 'EA', notes: 'Grade 5' });
+      hwSection.push({ line: lineNum++, item: 'Structural Bolts (5/8" × 1.5")', qty: rafterCount * 12, unit: 'EA', notes: 'Rafter connections' });
+      hwSection.push({ line: lineNum++, item: 'Tek Screws (#12 × 1")', qty: 500, unit: 'EA', notes: 'Girt/purlin attach' });
+      hwSection.push({ line: lineNum++, item: 'Tube Caulk (Construction)', qty: 12, unit: 'EA', notes: '' });
+
+      return { building, size, eave, type, qty, materials, totalLines: lineNum - 1 };
+    }
+
     // ==================== SIGNATURE/INITIALS PAD ====================
     class SignaturePad {
       constructor(canvas, onChange, isInitials = false) {
@@ -2023,8 +2186,9 @@
               <p class="text-green-800 font-bold text-lg">✅ Contract Sent Successfully!</p>
               <p class="text-green-700">Copies have been sent to both parties.</p>
               <div class="flex flex-col sm:flex-row gap-3 justify-center mt-4">
-                <button onclick="downloadContract()" class="py-3 px-6 btn-secondary rounded-lg font-semibold">📥 Download Contract</button>
-                <button onclick="printContract()" class="py-3 px-6 btn-primary rounded-lg font-semibold">🖨️ Print Contract</button>
+                <button onclick="downloadContract()" class="py-3 px-6 btn-secondary rounded-lg font-semibold">📥 Contract</button>
+                <button onclick="downloadBOM()" class="py-3 px-6 btn-secondary rounded-lg font-semibold">📋 Bill of Materials</button>
+                <button onclick="printContract()" class="py-3 px-6 btn-primary rounded-lg font-semibold">🖨️ Print</button>
               </div>
             </div>
           ` : ''}
@@ -2917,6 +3081,174 @@ Burnett Customs, LLC
       const a = document.createElement('a');
       a.href = url;
       a.download = 'Burnett_Contract_' + state.customer.name.replace(/\\s+/g, '_') + '_' + today.replace(/\\//g, '-') + '.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Download Bill of Materials / Purchase Order
+    function downloadBOM() {
+      const today = new Date().toLocaleDateString();
+      const poNumber = 'PO-' + Date.now().toString().slice(-8);
+
+      // Generate BOM for all buildings
+      const allBOMs = state.buildings.map((building, index) => generateBOM(building, index));
+
+      // Build HTML document
+      const bomHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Bill of Materials - ${state.customer.name} - ${today.replace(/\\//g, '-')}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; font-size: 11px; }
+            .page { max-width: 800px; margin: 0 auto; padding: 20px; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #003057; padding-bottom: 15px; margin-bottom: 20px; }
+            .logo-section h1 { font-size: 24px; color: #003057; }
+            .logo-section p { color: #6b7280; font-size: 10px; }
+            .po-info { text-align: right; }
+            .po-info .po-number { font-size: 18px; font-weight: bold; color: #003057; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+            .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; }
+            .info-box h4 { font-size: 10px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+            .info-box p { margin: 2px 0; }
+            .building-header { background: #003057; color: white; padding: 10px 15px; margin-top: 20px; border-radius: 6px 6px 0 0; }
+            .building-header h3 { font-size: 14px; margin: 0; }
+            .building-header .qty-badge { background: #05c3de; color: #003057; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 10px; }
+            .section-title { background: #e0f7fa; padding: 6px 10px; font-weight: bold; color: #003057; border-left: 3px solid #05c3de; margin-top: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            th { background: #f3f4f6; text-align: left; padding: 6px 8px; font-size: 9px; text-transform: uppercase; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+            td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; }
+            tr:hover { background: #f9fafb; }
+            .line-num { width: 30px; color: #9ca3af; }
+            .qty { text-align: center; font-weight: bold; width: 50px; }
+            .unit { width: 50px; color: #6b7280; }
+            .notes { color: #6b7280; font-size: 10px; }
+            .totals-box { background: #003057; color: white; padding: 15px; margin-top: 20px; border-radius: 6px; }
+            .totals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center; }
+            .totals-grid .label { font-size: 9px; opacity: 0.8; }
+            .totals-grid .value { font-size: 16px; font-weight: bold; }
+            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #6b7280; text-align: center; }
+            .signature-line { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+            .sig-box { border-top: 1px solid #000; padding-top: 5px; }
+            .sig-box .label { font-size: 9px; color: #6b7280; }
+            @media print { .page { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="header">
+              <div class="logo-section">
+                <h1>BURNETT CUSTOMS</h1>
+                <p>Metal Building Construction</p>
+                <p>Victoria, TX | bobby@burnettcustoms.net</p>
+              </div>
+              <div class="po-info">
+                <div class="po-number">${poNumber}</div>
+                <p><strong>BILL OF MATERIALS</strong></p>
+                <p>Date: ${today}</p>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-box">
+                <h4>Customer / Job Site</h4>
+                <p><strong>${state.customer.name}</strong></p>
+                <p>${state.customer.phone} | ${state.customer.email}</p>
+                <p>${state.customer.propertySameAsMailing
+                  ? state.customer.address1 + (state.customer.address2 ? ', ' + state.customer.address2 : '')
+                  : state.customer.propertyAddress1 + (state.customer.propertyAddress2 ? ', ' + state.customer.propertyAddress2 : '')}</p>
+                <p>${state.customer.propertySameAsMailing
+                  ? state.customer.city + ', ' + state.customer.state + ' ' + state.customer.zip
+                  : state.customer.propertyCity + ', ' + state.customer.propertyState + ' ' + state.customer.propertyZip}</p>
+              </div>
+              <div class="info-box">
+                <h4>Order Summary</h4>
+                <p><strong>Total Buildings:</strong> ${state.buildings.reduce((sum, b) => sum + (b.qty || 1), 0)}</p>
+                <p><strong>Configurations:</strong> ${state.buildings.length}</p>
+                <p><strong>Contract Sum:</strong> ${formatCurrency(calculateTotal())}</p>
+                <p><strong>Payment Method:</strong> ${state.paymentMethod ? state.paymentMethod.charAt(0).toUpperCase() + state.paymentMethod.slice(1) : 'TBD'}</p>
+              </div>
+            </div>
+
+            ${allBOMs.map((bom, bIndex) => `
+              <div class="building-header">
+                <h3>Building Configuration ${bIndex + 1}: ${bom.type.name} - ${bom.size.label} × ${bom.eave.label}
+                  <span class="qty-badge">QTY: ${bom.qty}</span>
+                </h3>
+              </div>
+
+              ${bom.materials.map(section => `
+                <div class="section-title">${section.section}</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="line-num">#</th>
+                      <th>Item Description</th>
+                      <th class="qty">QTY${bom.qty > 1 ? ' (×' + bom.qty + ')' : ''}</th>
+                      <th class="unit">Unit</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${section.items.map(item => `
+                      <tr>
+                        <td class="line-num">${item.line}</td>
+                        <td>${item.item}</td>
+                        <td class="qty">${item.qty}${bom.qty > 1 ? ' <span style="color:#6b7280;">(${item.qty * bom.qty})</span>' : ''}</td>
+                        <td class="unit">${item.unit}</td>
+                        <td class="notes">${item.notes}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              `).join('')}
+            `).join('')}
+
+            <div class="totals-box">
+              <div class="totals-grid">
+                <div>
+                  <div class="label">TOTAL BUILDINGS</div>
+                  <div class="value">${state.buildings.reduce((sum, b) => sum + (b.qty || 1), 0)}</div>
+                </div>
+                <div>
+                  <div class="label">TOTAL LINE ITEMS</div>
+                  <div class="value">${allBOMs.reduce((sum, b) => sum + b.totalLines, 0)}</div>
+                </div>
+                <div>
+                  <div class="label">CONTRACT VALUE</div>
+                  <div class="value">${formatCurrency(calculateTotal())}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="signature-line">
+              <div class="sig-box">
+                <div class="label">Prepared By / Date</div>
+              </div>
+              <div class="sig-box">
+                <div class="label">Approved By / Date</div>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>This Bill of Materials is an estimate based on building specifications. Actual quantities may vary based on final engineering and site conditions.</p>
+              <p>Generated by Burnett Customs Metal Building Estimator | ${today} | ${poNumber}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Create download
+      const blob = new Blob([bomHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Burnett_BOM_' + state.customer.name.replace(/\\s+/g, '_') + '_' + poNumber + '.html';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
