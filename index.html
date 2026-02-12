@@ -349,10 +349,19 @@
       buildingSize: null,
       eaveHeight: null,
 
-      // Door configuration
+      // Door configuration (301 walkthrough is STANDARD - always 1 included)
       doors: {
-        rollUp12: { qty: 0, placement: 'gabled' },
-        walkthrough: { qty: 0 }
+        overhead: [], // Array of {size: '12x12', type: 'rollup', placement: 'gabled'}
+        walkthrough301: 1, // Standard - always 1 included (additional can be purchased)
+        extraWalkthrough: 0 // Additional walk-through doors beyond the standard 1
+      },
+
+      // Color selections
+      colors: {
+        wallPanels: 'white',
+        roofPanels: 'white',
+        trim: 'white',
+        insulation: 'white'
       },
 
       // Add-ons
@@ -494,12 +503,51 @@
       { id: '20', label: "20 ft", modifier: 12000 }
     ];
 
-    // Add-ons per specification
+    // Color Options (from Bobby+Josh discussion)
+    const COLOR_OPTIONS = {
+      panels: [
+        { id: 'white', name: 'White', hex: '#ffffff' },
+        { id: 'black', name: 'Black', hex: '#1a1a1a' },
+        { id: 'charcoal', name: 'Charcoal', hex: '#36454f' },
+        { id: 'gray', name: 'Gray', hex: '#808080' },
+        { id: 'tan', name: 'Tan', hex: '#d2b48c' },
+        { id: 'brown', name: 'Brown', hex: '#654321' },
+        { id: 'red', name: 'Barn Red', hex: '#7c0a02' },
+        { id: 'green', name: 'Hunter Green', hex: '#355e3b' },
+        { id: 'galvalume', name: 'Galvalume (unpainted)', hex: '#b8b8b8' }
+      ],
+      trim: [
+        { id: 'white', name: 'White', hex: '#ffffff' },
+        { id: 'black', name: 'Black', hex: '#1a1a1a' },
+        { id: 'charcoal', name: 'Charcoal', hex: '#36454f' },
+        { id: 'tan', name: 'Tan', hex: '#d2b48c' },
+        { id: 'brown', name: 'Brown', hex: '#654321' }
+      ],
+      insulation: [
+        { id: 'white', name: 'White', hex: '#f5f5f5' },
+        { id: 'black', name: 'Black', hex: '#2d2d2d' }
+      ]
+    };
+
+    // Door Size Options (per Bobby: 8, 10, 12, 14 - max 14x14)
+    const DOOR_SIZES = [
+      { id: '8x8', width: 8, height: 8, label: "8' × 8'", price: 1890 },
+      { id: '10x10', width: 10, height: 10, label: "10' × 10'", price: 2290 },
+      { id: '12x12', width: 12, height: 12, label: "12' × 12'", price: 2890 },
+      { id: '14x14', width: 14, height: 14, label: "14' × 14'", price: 3490 },
+      { id: '10x8', width: 10, height: 8, label: "10' × 8'", price: 2090 },
+      { id: '12x10', width: 12, height: 10, label: "12' × 10'", price: 2490 },
+      { id: '14x12', width: 14, height: 12, label: "14' × 12'", price: 3190 }
+    ];
+
+    // Door Types
+    const DOOR_TYPES = [
+      { id: 'rollup', name: 'Roll-Up Door', desc: 'Coils overhead, saves space' },
+      { id: 'sectional', name: 'Sectional Door', desc: 'Slides up in sections, quieter operation' }
+    ];
+
+    // Add-ons per specification (NOTE: 301 walkthrough door is NOW STANDARD - included in base price)
     const ADDONS = [
-      { cat: 'Doors', items: [
-        { id: 'door_roll_12', name: "12'×12' Roll-Up Door", price: 2890, note: 'Qty set in door config' },
-        { id: 'door_walk', name: "Walkthrough Door", price: 1045, note: 'Qty set in door config' }
-      ]},
       { cat: 'Windows', items: [
         { id: 'win_3x3', name: "3'×3' Fixed Window", price: 525, hasQty: true, maxQty: 10 },
         { id: 'win_4x4', name: "4'×4' Slider Window", price: 695, hasQty: true, maxQty: 10 }
@@ -512,6 +560,9 @@
         { id: 'gutters', name: "Gutters & Downspouts", price: 1890 },
         { id: 'wainscot', name: "Wainscot Siding (3' tall)", price: 1200, hasQty: true, maxQty: 4, note: 'Per wall' },
         { id: 'concrete_slab', name: "Concrete Slab (4\" w/ rebar)", price: 0, perSqFt: 8, note: 'Price based on building size' }
+      ]},
+      { cat: 'Additional Doors', items: [
+        { id: 'extra_walkthrough', name: "Additional 3070 Walk-through Door", price: 1045, hasQty: true, maxQty: 4, note: '1 included standard' }
       ]}
     ];
 
@@ -599,18 +650,24 @@
       trimSection.push({ line: lineNum++, item: 'Rake Trim (10ft sections)', qty: Math.ceil(width * 2 / 10), unit: 'EA', notes: '' });
       trimSection.push({ line: lineNum++, item: 'J-Trim (10ft sections)', qty: 20, unit: 'EA', notes: 'Around openings' });
 
-      // DOORS
-      if (building.doors.rollUp12.qty > 0 || building.doors.walkthrough.qty > 0) {
-        materials.push({ section: 'DOORS', items: [] });
-        const doorSection = materials[materials.length - 1].items;
-        if (building.doors.rollUp12.qty > 0) {
-          doorSection.push({ line: lineNum++, item: "12' × 12' Roll-Up Door (Commercial)", qty: building.doors.rollUp12.qty, unit: 'EA', notes: 'Wind-rated, insulated' });
-          doorSection.push({ line: lineNum++, item: "Roll-Up Door Frame Kit (12')", qty: building.doors.rollUp12.qty, unit: 'SET', notes: '' });
-        }
-        if (building.doors.walkthrough.qty > 0) {
-          doorSection.push({ line: lineNum++, item: "3' × 7' Steel Walkthrough Door", qty: building.doors.walkthrough.qty, unit: 'EA', notes: 'Pre-hung w/ hardware' });
-          doorSection.push({ line: lineNum++, item: 'Walkthrough Door Frame', qty: building.doors.walkthrough.qty, unit: 'SET', notes: '' });
-        }
+      // DOORS (301 walk-through is ALWAYS included as standard)
+      materials.push({ section: 'DOORS', items: [] });
+      const doorSection = materials[materials.length - 1].items;
+
+      // Standard 301 Walk-through Door (always included)
+      const totalWalkthrough = 1 + (building.doors.extraWalkthrough || 0);
+      doorSection.push({ line: lineNum++, item: "3070 Walk-Through Door (3' × 7')", qty: totalWalkthrough, unit: 'EA', notes: '1 standard + ' + (building.doors.extraWalkthrough || 0) + ' additional' });
+      doorSection.push({ line: lineNum++, item: 'Walk-Through Door Frame', qty: totalWalkthrough, unit: 'SET', notes: 'Pre-hung w/ hardware' });
+
+      // Overhead Doors (from new structure)
+      if (building.doors.overhead && building.doors.overhead.length > 0) {
+        building.doors.overhead.forEach((door, idx) => {
+          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+          const doorLabel = doorSize ? doorSize.label : door.size;
+          const doorType = door.type === 'rollup' ? 'Roll-Up' : 'Sectional';
+          doorSection.push({ line: lineNum++, item: `${doorLabel} ${doorType} Door`, qty: 1, unit: 'EA', notes: `${door.placement === 'gabled' ? 'Gabled end' : 'Eave side'}, wind-rated` });
+          doorSection.push({ line: lineNum++, item: `${doorType} Door Frame Kit (${doorLabel})`, qty: 1, unit: 'SET', notes: '' });
+        });
       }
 
       // WINDOWS
@@ -781,9 +838,15 @@
 
       let total = size.startingPrice + eave.modifier;
 
-      // Add doors
-      total += state.doors.rollUp12.qty * 2890;
-      total += state.doors.walkthrough.qty * 1045;
+      // Add overhead doors (each has a size with a price)
+      if (state.doors.overhead && state.doors.overhead.length > 0) {
+        state.doors.overhead.forEach(door => {
+          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+          if (doorSize) total += doorSize.price;
+        });
+      }
+      // Add extra walk-through doors (standard 301 is included in base price)
+      total += (state.doors.extraWalkthrough || 0) * 1045;
 
       // Add selected add-ons (quantity stored directly in state.addons[id])
       ADDONS.forEach(cat => {
@@ -809,8 +872,16 @@
       if (!size || !eave) return 0;
 
       let unitPrice = size.startingPrice + eave.modifier;
-      unitPrice += building.doors.rollUp12.qty * 2890;
-      unitPrice += building.doors.walkthrough.qty * 1045;
+
+      // Add overhead doors
+      if (building.doors.overhead && building.doors.overhead.length > 0) {
+        building.doors.overhead.forEach(door => {
+          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+          if (doorSize) unitPrice += doorSize.price;
+        });
+      }
+      // Add extra walk-through doors (standard 301 is included in base price)
+      unitPrice += (building.doors.extraWalkthrough || 0) * 1045;
 
       ADDONS.forEach(cat => {
         cat.items.forEach(item => {
@@ -837,8 +908,16 @@
       if (!size || !eave) return 0;
 
       let unitPrice = size.startingPrice + eave.modifier;
-      unitPrice += building.doors.rollUp12.qty * 2890;
-      unitPrice += building.doors.walkthrough.qty * 1045;
+
+      // Add overhead doors
+      if (building.doors.overhead && building.doors.overhead.length > 0) {
+        building.doors.overhead.forEach(door => {
+          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+          if (doorSize) unitPrice += doorSize.price;
+        });
+      }
+      // Add extra walk-through doors (standard 301 is included in base price)
+      unitPrice += (building.doors.extraWalkthrough || 0) * 1045;
 
       ADDONS.forEach(cat => {
         cat.items.forEach(item => {
@@ -885,6 +964,7 @@
         buildingSize: state.buildingSize,
         eaveHeight: state.eaveHeight,
         doors: JSON.parse(JSON.stringify(state.doors)),
+        colors: JSON.parse(JSON.stringify(state.colors)),
         addons: JSON.parse(JSON.stringify(state.addons)),
         qty: existingQty
       };
@@ -915,7 +995,8 @@
       state.buildingType = null;
       state.buildingSize = null;
       state.eaveHeight = null;
-      state.doors = { rollUp12: { qty: 0, placement: 'gabled' }, walkthrough: { qty: 0 } };
+      state.doors = { overhead: [], walkthrough301: 1, extraWalkthrough: 0 };
+      state.colors = { wallPanels: 'white', roofPanels: 'white', trim: 'white', insulation: 'white' };
       state.addons = {};
       state.step = 0;
       render();
@@ -929,6 +1010,7 @@
       state.buildingSize = building.buildingSize;
       state.eaveHeight = building.eaveHeight;
       state.doors = JSON.parse(JSON.stringify(building.doors));
+      state.colors = JSON.parse(JSON.stringify(building.colors || { wallPanels: 'white', roofPanels: 'white', trim: 'white', insulation: 'white' }));
       state.addons = JSON.parse(JSON.stringify(building.addons));
       state.step = 0;
       render();
@@ -1212,11 +1294,21 @@
       `;
     }
 
-    // Step 3: Door Configuration
+    // Get available door sizes based on eave height (door height must be 2ft less than eave)
+    function getAvailableDoorSizes() {
+      const eaveHeight = parseInt(state.eaveHeight);
+      const maxDoorHeight = eaveHeight - 2;
+      return DOOR_SIZES.filter(door => door.height <= maxDoorHeight);
+    }
+
+    // Step 3: Door Configuration & Colors
     function renderDoorConfig() {
       const type = BUILDING_TYPES[state.buildingType];
       const size = getSelectedSize();
       const eave = getSelectedEave();
+      const availableDoorSizes = getAvailableDoorSizes();
+      const eaveHeight = parseInt(state.eaveHeight);
+
       return `
         <header class="header-bar p-4 shadow-lg">
           <div class="max-w-4xl mx-auto flex items-center justify-between">
@@ -1236,57 +1328,165 @@
 
         <main class="max-w-4xl mx-auto p-4">
           <div class="text-center mb-6">
-            <h2 class="text-2xl font-bold text-[#003057] mb-2">Door Configuration</h2>
-            <p class="text-gray-600">Configure doors for your building</p>
+            <h2 class="text-2xl font-bold text-[#003057] mb-2">Doors & Colors</h2>
+            <p class="text-gray-600">Configure doors and select your building colors</p>
           </div>
 
           <div class="bg-white rounded-xl p-6 shadow-lg space-y-6">
-            <!-- Roll-Up Doors -->
+
+            <!-- STANDARD WALKTHROUGH DOOR (Included) -->
             <div class="border-b pb-6">
-              <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center justify-between mb-2">
                 <div>
-                  <h3 class="font-bold text-lg">12' × 12' Roll-Up Doors</h3>
-                  <p class="text-gray-500 text-sm">$2,890 each</p>
+                  <h3 class="font-bold text-lg text-green-700">✓ 3070 Walk-Through Door</h3>
+                  <p class="text-green-600 text-sm font-medium">INCLUDED STANDARD (3' × 7')</p>
                 </div>
-                <div class="flex items-center gap-3">
-                  <button onclick="adjustDoor('rollUp12', -1)" class="w-10 h-10 rounded-full bg-gray-200 text-[#003057] font-bold text-xl">−</button>
-                  <span class="text-2xl font-bold w-8 text-center">${state.doors.rollUp12.qty}</span>
-                  <button onclick="adjustDoor('rollUp12', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-[#003057] font-bold text-xl">+</button>
+                <div class="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold">
+                  1 Included
                 </div>
               </div>
-              ${state.doors.rollUp12.qty > 0 ? `
-                <div class="bg-gray-50 rounded-lg p-4">
-                  <p class="font-semibold text-sm mb-2">Placement:</p>
-                  <div class="flex gap-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="rollUpPlacement" value="gabled"
-                             ${state.doors.rollUp12.placement === 'gabled' ? 'checked' : ''}
-                             onchange="updateDoorPlacement('rollUp12', 'gabled')">
-                      <span>Gabled End</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="rollUpPlacement" value="eave"
-                             ${state.doors.rollUp12.placement === 'eave' ? 'checked' : ''}
-                             onchange="updateDoorPlacement('rollUp12', 'eave')">
-                      <span>Eave Side</span>
-                    </label>
+              <p class="text-gray-500 text-sm">Every building includes one standard 3070 walk-through door at no additional cost.</p>
+
+              <!-- Additional Walk-Through Doors -->
+              <div class="mt-4 bg-gray-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-semibold text-sm">Additional Walk-Through Doors</p>
+                    <p class="text-gray-500 text-xs">$1,045 each</p>
                   </div>
-                  <p class="text-xs text-gray-500 mt-2">⚠️ Minimum 2 ft from wall edge required</p>
+                  <div class="flex items-center gap-3">
+                    <button onclick="adjustExtraWalkthrough(-1)" class="w-8 h-8 rounded-full bg-gray-200 text-[#003057] font-bold">−</button>
+                    <span class="text-xl font-bold w-6 text-center">${state.doors.extraWalkthrough}</span>
+                    <button onclick="adjustExtraWalkthrough(1)" class="w-8 h-8 rounded-full bg-[#05c3de] text-[#003057] font-bold">+</button>
+                  </div>
                 </div>
-              ` : ''}
+              </div>
             </div>
 
-            <!-- Walkthrough Doors -->
-            <div>
-              <div class="flex items-center justify-between">
-                <div>
-                  <h3 class="font-bold text-lg">Walkthrough Doors</h3>
-                  <p class="text-gray-500 text-sm">$1,045 each</p>
+            <!-- OVERHEAD DOORS -->
+            <div class="border-b pb-6">
+              <h3 class="font-bold text-lg mb-4">Overhead Doors</h3>
+              <p class="text-gray-500 text-sm mb-4">Max door height: ${eaveHeight - 2}' (2 ft less than ${eaveHeight}' eave)</p>
+
+              <!-- Current Overhead Doors -->
+              ${state.doors.overhead.length > 0 ? `
+                <div class="space-y-3 mb-4">
+                  ${state.doors.overhead.map((door, idx) => `
+                    <div class="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-2xl">${door.type === 'rollup' ? '🔄' : '📐'}</span>
+                        <div>
+                          <p class="font-semibold">${door.size} ${door.type === 'rollup' ? 'Roll-Up' : 'Sectional'}</p>
+                          <p class="text-gray-500 text-sm">${door.placement === 'gabled' ? 'Gabled End' : 'Eave Side'}</p>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="font-bold text-[#003057]">${formatCurrency(DOOR_SIZES.find(d => d.id === door.size)?.price || 0)}</span>
+                        <button onclick="removeOverheadDoor(${idx})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold">×</button>
+                      </div>
+                    </div>
+                  `).join('')}
                 </div>
-                <div class="flex items-center gap-3">
-                  <button onclick="adjustDoor('walkthrough', -1)" class="w-10 h-10 rounded-full bg-gray-200 text-[#003057] font-bold text-xl">−</button>
-                  <span class="text-2xl font-bold w-8 text-center">${state.doors.walkthrough.qty}</span>
-                  <button onclick="adjustDoor('walkthrough', 1)" class="w-10 h-10 rounded-full bg-[#05c3de] text-[#003057] font-bold text-xl">+</button>
+              ` : '<p class="text-gray-400 text-sm italic mb-4">No overhead doors added yet</p>'}
+
+              <!-- Add New Overhead Door -->
+              <div class="bg-blue-50 rounded-lg p-4 border-2 border-dashed border-blue-200">
+                <p class="font-semibold text-sm mb-3 text-[#003057]">Add Overhead Door:</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <select id="newDoorSize" class="p-2 border rounded-lg bg-white">
+                    <option value="">Select Size</option>
+                    ${availableDoorSizes.map(d => `<option value="${d.id}">${d.label} - ${formatCurrency(d.price)}</option>`).join('')}
+                  </select>
+                  <select id="newDoorType" class="p-2 border rounded-lg bg-white">
+                    <option value="rollup">Roll-Up Door</option>
+                    <option value="sectional">Sectional Door</option>
+                  </select>
+                  <select id="newDoorPlacement" class="p-2 border rounded-lg bg-white">
+                    <option value="gabled">Gabled End</option>
+                    <option value="eave">Eave Side</option>
+                  </select>
+                </div>
+                <button onclick="addOverheadDoor()" class="mt-3 w-full py-2 bg-[#003057] text-white rounded-lg font-semibold hover:bg-[#004477]">
+                  + Add Door
+                </button>
+              </div>
+            </div>
+
+            <!-- DOOR PLACEMENT VISUALIZATION (Placeholder) -->
+            <div class="border-b pb-6">
+              <h3 class="font-bold text-lg mb-3">Door Placement Preview</h3>
+              <div class="bg-gradient-to-b from-gray-100 to-gray-200 rounded-xl p-6 text-center border-2 border-dashed border-gray-300">
+                <div class="text-6xl mb-3">🏗️</div>
+                <p class="text-gray-600 font-medium">Visual Door Placement</p>
+                <p class="text-gray-400 text-sm">Coming Soon: Drag-and-drop door placement on building profile</p>
+                <p class="text-xs text-gray-400 mt-2">Final door positions confirmed during concrete pour coordination</p>
+              </div>
+            </div>
+
+            <!-- COLOR SELECTION -->
+            <div>
+              <h3 class="font-bold text-lg mb-4">Building Colors</h3>
+
+              <!-- Wall Panels -->
+              <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Wall Panels</label>
+                <div class="flex flex-wrap gap-2">
+                  ${COLOR_OPTIONS.panels.map(c => `
+                    <button onclick="setColor('wallPanels', '${c.id}')"
+                            class="w-10 h-10 rounded-lg border-2 ${state.colors.wallPanels === c.id ? 'border-[#003057] ring-2 ring-[#05c3de]' : 'border-gray-300'}"
+                            style="background-color: ${c.hex};"
+                            title="${c.name}">
+                      ${state.colors.wallPanels === c.id ? '<span class="text-xs">✓</span>' : ''}
+                    </button>
+                  `).join('')}
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Selected: ${COLOR_OPTIONS.panels.find(c => c.id === state.colors.wallPanels)?.name || 'White'}</p>
+              </div>
+
+              <!-- Roof Panels -->
+              <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Roof Panels</label>
+                <div class="flex flex-wrap gap-2">
+                  ${COLOR_OPTIONS.panels.map(c => `
+                    <button onclick="setColor('roofPanels', '${c.id}')"
+                            class="w-10 h-10 rounded-lg border-2 ${state.colors.roofPanels === c.id ? 'border-[#003057] ring-2 ring-[#05c3de]' : 'border-gray-300'}"
+                            style="background-color: ${c.hex};"
+                            title="${c.name}">
+                      ${state.colors.roofPanels === c.id ? '<span class="text-xs">✓</span>' : ''}
+                    </button>
+                  `).join('')}
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Selected: ${COLOR_OPTIONS.panels.find(c => c.id === state.colors.roofPanels)?.name || 'White'}</p>
+              </div>
+
+              <!-- Trim -->
+              <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Trim</label>
+                <div class="flex flex-wrap gap-2">
+                  ${COLOR_OPTIONS.trim.map(c => `
+                    <button onclick="setColor('trim', '${c.id}')"
+                            class="w-10 h-10 rounded-lg border-2 ${state.colors.trim === c.id ? 'border-[#003057] ring-2 ring-[#05c3de]' : 'border-gray-300'}"
+                            style="background-color: ${c.hex};"
+                            title="${c.name}">
+                      ${state.colors.trim === c.id ? '<span class="text-xs">✓</span>' : ''}
+                    </button>
+                  `).join('')}
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Selected: ${COLOR_OPTIONS.trim.find(c => c.id === state.colors.trim)?.name || 'White'}</p>
+              </div>
+
+              <!-- Insulation Color -->
+              <div>
+                <label class="block text-sm font-semibold mb-2">Insulation (if selected)</label>
+                <div class="flex gap-2">
+                  ${COLOR_OPTIONS.insulation.map(c => `
+                    <button onclick="setColor('insulation', '${c.id}')"
+                            class="px-4 py-2 rounded-lg border-2 ${state.colors.insulation === c.id ? 'border-[#003057] ring-2 ring-[#05c3de] bg-gray-100' : 'border-gray-300'}"
+                            title="${c.name}">
+                      <span class="inline-block w-4 h-4 rounded mr-2" style="background-color: ${c.hex}; border: 1px solid #ccc;"></span>
+                      ${c.name}
+                    </button>
+                  `).join('')}
                 </div>
               </div>
             </div>
@@ -1302,6 +1502,41 @@
           </div>
         </main>
       `;
+    }
+
+    // Door helper functions
+    function adjustExtraWalkthrough(delta) {
+      const newQty = Math.max(0, Math.min(4, state.doors.extraWalkthrough + delta));
+      state.doors.extraWalkthrough = newQty;
+      render();
+    }
+
+    function addOverheadDoor() {
+      const sizeSelect = document.getElementById('newDoorSize');
+      const typeSelect = document.getElementById('newDoorType');
+      const placementSelect = document.getElementById('newDoorPlacement');
+
+      if (!sizeSelect.value) {
+        alert('Please select a door size');
+        return;
+      }
+
+      state.doors.overhead.push({
+        size: sizeSelect.value,
+        type: typeSelect.value,
+        placement: placementSelect.value
+      });
+      render();
+    }
+
+    function removeOverheadDoor(index) {
+      state.doors.overhead.splice(index, 1);
+      render();
+    }
+
+    function setColor(colorType, colorId) {
+      state.colors[colorType] = colorId;
+      render();
     }
 
     // Step 4: Add-ons
@@ -1420,12 +1655,30 @@
 
         items.push({ name: `${type.name} - ${size.label} × ${eave.label}`, price: size.startingPrice + eave.modifier });
 
-        if (building.doors.rollUp12.qty > 0) {
-          items.push({ name: `  12'×12' Roll-Up Door × ${building.doors.rollUp12.qty}`, price: building.doors.rollUp12.qty * 2890 });
+        // Standard 301 Walk-through door (included in base)
+        items.push({ name: `  ✓ 3070 Walk-Through Door (Standard)`, price: 0 });
+
+        // Overhead doors
+        if (building.doors.overhead && building.doors.overhead.length > 0) {
+          building.doors.overhead.forEach(door => {
+            const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+            const doorLabel = doorSize ? doorSize.label : door.size;
+            const doorType = door.type === 'rollup' ? 'Roll-Up' : 'Sectional';
+            items.push({ name: `  ${doorLabel} ${doorType} Door`, price: doorSize ? doorSize.price : 0 });
+          });
         }
-        if (building.doors.walkthrough.qty > 0) {
-          items.push({ name: `  Walkthrough Door × ${building.doors.walkthrough.qty}`, price: building.doors.walkthrough.qty * 1045 });
+
+        // Extra walk-through doors
+        if (building.doors.extraWalkthrough > 0) {
+          items.push({ name: `  Additional Walk-Through × ${building.doors.extraWalkthrough}`, price: building.doors.extraWalkthrough * 1045 });
         }
+
+        // Colors (display only, no extra cost)
+        const colors = building.colors || { wallPanels: 'white', roofPanels: 'white', trim: 'white' };
+        const wallColor = COLOR_OPTIONS.panels.find(c => c.id === colors.wallPanels)?.name || 'White';
+        const roofColor = COLOR_OPTIONS.panels.find(c => c.id === colors.roofPanels)?.name || 'White';
+        const trimColor = COLOR_OPTIONS.trim.find(c => c.id === colors.trim)?.name || 'White';
+        items.push({ name: `  Colors: ${wallColor} walls, ${roofColor} roof, ${trimColor} trim`, price: 0 });
 
         ADDONS.forEach(cat => {
           cat.items.forEach(item => {
