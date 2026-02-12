@@ -503,6 +503,92 @@
       { id: '20', label: "20 ft", modifier: 12000 }
     ];
 
+    // ==================== ADMIN CONFIGURABLE PRICING ====================
+    // These can be adjusted by admin without touching main logic
+    const ADMIN_CONFIG = {
+      // Gutter pricing (default $10/LF - industry range $8-15/LF installed)
+      gutterPricePerLF: 10,
+      gutterPriceWarningMin: 8,   // Warn if set below industry low
+      gutterPriceWarningMax: 15,  // Warn if set above industry high
+
+      // Gutter calculation modes
+      gutterModes: {
+        both_eaves: { label: 'Both Eaves (Typical Gable)', formula: 'length * 2' },
+        perimeter: { label: 'Full Perimeter', formula: '(length + width) * 2' }
+      },
+      defaultGutterMode: 'both_eaves',
+
+      // Downspout spacing (one every X feet)
+      downspoutSpacingFt: 25,
+
+      // Door constraints
+      doorHeightClearance: 2,  // Door height must be this many feet less than eave
+      maxDoorWidth: 14,
+      maxDoorHeight: 14
+    };
+
+    // Door Height Options (discrete values per Bobby's specs)
+    const DOOR_HEIGHTS = [
+      { id: '8', value: 8, label: "8 ft" },
+      { id: '10', value: 10, label: "10 ft" },
+      { id: '12', value: 12, label: "12 ft" },
+      { id: '14', value: 14, label: "14 ft" }
+    ];
+
+    // Door Width Options (discrete values)
+    const DOOR_WIDTHS = [
+      { id: '8', value: 8, label: "8 ft" },
+      { id: '10', value: 10, label: "10 ft" },
+      { id: '12', value: 12, label: "12 ft" },
+      { id: '14', value: 14, label: "14 ft" }
+    ];
+
+    // Door Pricing Matrix (height x width = price)
+    // Prices increase with size; base price ~$1,800 for 8x8
+    const DOOR_PRICE_MATRIX = {
+      '8x8': 1890, '8x10': 2090, '8x12': 2290, '8x14': 2490,
+      '10x8': 2090, '10x10': 2290, '10x12': 2590, '10x14': 2890,
+      '12x8': 2290, '12x10': 2490, '12x12': 2890, '12x14': 3190,
+      '14x8': 2490, '14x10': 2790, '14x12': 3190, '14x14': 3490
+    };
+
+    // Calculate gutter linear footage based on building geometry
+    function calculateGutterLF(buildingSize, mode = ADMIN_CONFIG.defaultGutterMode) {
+      const size = BUILDING_SIZES.find(s => s.id === buildingSize);
+      if (!size) return 0;
+
+      const dims = size.label.replace(/'/g, '').split(' × ');
+      const width = parseInt(dims[0]);
+      const length = parseInt(dims[1]);
+
+      switch (mode) {
+        case 'both_eaves':
+          return length * 2;  // Both eave sides (typical for gable roof)
+        case 'perimeter':
+          return (length + width) * 2;  // All four sides
+        default:
+          return length * 2;
+      }
+    }
+
+    // Calculate gutter price based on LF
+    function calculateGutterPrice(buildingSize, mode = ADMIN_CONFIG.defaultGutterMode) {
+      const lf = calculateGutterLF(buildingSize, mode);
+      return lf * ADMIN_CONFIG.gutterPricePerLF;
+    }
+
+    // Get eligible door heights based on eave height (must be 2ft less)
+    function getEligibleDoorHeights(eaveHeight) {
+      const maxHeight = parseInt(eaveHeight) - ADMIN_CONFIG.doorHeightClearance;
+      return DOOR_HEIGHTS.filter(h => h.value <= maxHeight);
+    }
+
+    // Get door price from matrix
+    function getDoorPrice(height, width) {
+      const key = `${height}x${width}`;
+      return DOOR_PRICE_MATRIX[key] || 0;
+    }
+
     // Color Options (from Bobby+Josh discussion)
     const COLOR_OPTIONS = {
       panels: [
@@ -557,7 +643,7 @@
         { id: 'roof_insulation', name: "Roof Insulation", price: 2000 }
       ]},
       { cat: 'Options', items: [
-        { id: 'gutters', name: "Gutters & Downspouts", price: 1890 },
+        { id: 'gutters', name: "Gutters & Downspouts", price: 0, perLF: true, note: 'Auto-calculated from roof length' },
         { id: 'wainscot', name: "Wainscot Siding (3' tall)", price: 1200, hasQty: true, maxQty: 4, note: 'Per wall' },
         { id: 'concrete_slab', name: "Concrete Slab (4\" w/ rebar)", price: 0, perSqFt: 8, note: 'Price based on building size' }
       ]},
@@ -701,14 +787,20 @@
         }
       }
 
-      // GUTTERS
+      // GUTTERS (LF-based calculation)
       if (building.addons['gutters']) {
         materials.push({ section: 'GUTTERS & DRAINAGE', items: [] });
         const gutterSection = materials[materials.length - 1].items;
-        gutterSection.push({ line: lineNum++, item: '5" K-Style Gutters (10ft)', qty: Math.ceil(length * 2 / 10), unit: 'EA', notes: 'Color matched' });
-        gutterSection.push({ line: lineNum++, item: '3" × 4" Downspouts (10ft)', qty: Math.ceil(length / 25) * 2, unit: 'EA', notes: '' });
-        gutterSection.push({ line: lineNum++, item: 'Gutter Brackets', qty: Math.ceil(length * 2 / 3), unit: 'EA', notes: '' });
-        gutterSection.push({ line: lineNum++, item: 'Downspout Brackets', qty: Math.ceil(length / 25) * 4, unit: 'EA', notes: '' });
+        // Calculate gutter LF using the helper function
+        const gutterLF = calculateGutterLF(building.buildingSize);
+        const downspoutCount = Math.ceil(gutterLF / ADMIN_CONFIG.downspoutSpacingFt);
+
+        gutterSection.push({ line: lineNum++, item: '5" K-Style Gutters (10ft)', qty: Math.ceil(gutterLF / 10), unit: 'EA', notes: `${gutterLF} LF total @ $${ADMIN_CONFIG.gutterPricePerLF}/LF` });
+        gutterSection.push({ line: lineNum++, item: '3" × 4" Downspouts (10ft)', qty: downspoutCount, unit: 'EA', notes: `1 per ${ADMIN_CONFIG.downspoutSpacingFt}ft` });
+        gutterSection.push({ line: lineNum++, item: 'Gutter Brackets', qty: Math.ceil(gutterLF / 3), unit: 'EA', notes: '3ft O.C. spacing' });
+        gutterSection.push({ line: lineNum++, item: 'Downspout Brackets', qty: downspoutCount * 2, unit: 'EA', notes: '2 per downspout' });
+        gutterSection.push({ line: lineNum++, item: 'End Caps', qty: 4, unit: 'EA', notes: '' });
+        gutterSection.push({ line: lineNum++, item: 'Gutter Sealant', qty: Math.ceil(gutterLF / 50), unit: 'TUBE', notes: '' });
       }
 
       // WAINSCOT
@@ -838,11 +930,17 @@
 
       let total = size.startingPrice + eave.modifier;
 
-      // Add overhead doors (each has a size with a price)
+      // Add overhead doors (each has a size with a price from matrix)
       if (state.doors.overhead && state.doors.overhead.length > 0) {
         state.doors.overhead.forEach(door => {
-          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
-          if (doorSize) total += doorSize.price;
+          // Use new price matrix if available, fallback to DOOR_SIZES
+          const matrixPrice = getDoorPrice(door.height, door.width);
+          if (matrixPrice > 0) {
+            total += matrixPrice;
+          } else {
+            const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+            if (doorSize) total += doorSize.price;
+          }
         });
       }
       // Add extra walk-through doors (standard 301 is included in base price)
@@ -853,7 +951,10 @@
         cat.items.forEach(item => {
           const qty = state.addons[item.id] || 0;
           if (qty > 0 && !item.id.startsWith('door_')) {
-            if (item.perSqFt) {
+            if (item.perLF) {
+              // Gutter pricing: calculate based on linear footage
+              total += calculateGutterPrice(state.buildingSize);
+            } else if (item.perSqFt) {
               total += item.perSqFt * size.sqft;
             } else {
               total += item.price * qty;
@@ -876,8 +977,14 @@
       // Add overhead doors
       if (building.doors.overhead && building.doors.overhead.length > 0) {
         building.doors.overhead.forEach(door => {
-          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
-          if (doorSize) unitPrice += doorSize.price;
+          // Use new price matrix if available, fallback to DOOR_SIZES
+          const matrixPrice = getDoorPrice(door.height, door.width);
+          if (matrixPrice > 0) {
+            unitPrice += matrixPrice;
+          } else {
+            const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+            if (doorSize) unitPrice += doorSize.price;
+          }
         });
       }
       // Add extra walk-through doors (standard 301 is included in base price)
@@ -887,7 +994,10 @@
         cat.items.forEach(item => {
           const qty = building.addons[item.id] || 0;
           if (qty > 0 && !item.id.startsWith('door_')) {
-            if (item.perSqFt) {
+            if (item.perLF) {
+              // Gutter pricing: calculate based on linear footage
+              unitPrice += calculateGutterPrice(building.buildingSize);
+            } else if (item.perSqFt) {
               unitPrice += item.perSqFt * size.sqft;
             } else {
               unitPrice += item.price * qty;
@@ -912,8 +1022,14 @@
       // Add overhead doors
       if (building.doors.overhead && building.doors.overhead.length > 0) {
         building.doors.overhead.forEach(door => {
-          const doorSize = DOOR_SIZES.find(d => d.id === door.size);
-          if (doorSize) unitPrice += doorSize.price;
+          // Use new price matrix if available, fallback to DOOR_SIZES
+          const matrixPrice = getDoorPrice(door.height, door.width);
+          if (matrixPrice > 0) {
+            unitPrice += matrixPrice;
+          } else {
+            const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+            if (doorSize) unitPrice += doorSize.price;
+          }
         });
       }
       // Add extra walk-through doors (standard 301 is included in base price)
@@ -923,7 +1039,10 @@
         cat.items.forEach(item => {
           const qty = building.addons[item.id] || 0;
           if (qty > 0 && !item.id.startsWith('door_')) {
-            if (item.perSqFt) {
+            if (item.perLF) {
+              // Gutter pricing: calculate based on linear footage
+              unitPrice += calculateGutterPrice(building.buildingSize);
+            } else if (item.perSqFt) {
               unitPrice += item.perSqFt * size.sqft;
             } else {
               unitPrice += item.price * qty;
@@ -1365,48 +1484,85 @@
 
             <!-- OVERHEAD DOORS -->
             <div class="border-b pb-6">
-              <h3 class="font-bold text-lg mb-4">Overhead Doors</h3>
-              <p class="text-gray-500 text-sm mb-4">Max door height: ${eaveHeight - 2}' (2 ft less than ${eaveHeight}' eave)</p>
+              <h3 class="font-bold text-lg mb-2">Overhead Doors</h3>
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p class="text-amber-800 text-sm">
+                  <strong>⚠️ Door Height Rule:</strong> Maximum door height is <strong>${eaveHeight - ADMIN_CONFIG.doorHeightClearance} ft</strong>
+                  (${ADMIN_CONFIG.doorHeightClearance} ft less than your ${eaveHeight} ft eave height)
+                </p>
+              </div>
 
               <!-- Current Overhead Doors -->
               ${state.doors.overhead.length > 0 ? `
                 <div class="space-y-3 mb-4">
-                  ${state.doors.overhead.map((door, idx) => `
+                  ${state.doors.overhead.map((door, idx) => {
+                    const price = getDoorPrice(door.height, door.width) || DOOR_SIZES.find(d => d.id === door.size)?.price || 0;
+                    return `
                     <div class="flex items-center justify-between bg-gray-50 rounded-lg p-3">
                       <div class="flex items-center gap-3">
                         <span class="text-2xl">${door.type === 'rollup' ? '🔄' : '📐'}</span>
                         <div>
-                          <p class="font-semibold">${door.size} ${door.type === 'rollup' ? 'Roll-Up' : 'Sectional'}</p>
+                          <p class="font-semibold">${door.height || door.size?.split('x')[0]}' H × ${door.width || door.size?.split('x')[1]}' W ${door.type === 'rollup' ? 'Roll-Up' : 'Sectional'}</p>
                           <p class="text-gray-500 text-sm">${door.placement === 'gabled' ? 'Gabled End' : 'Eave Side'}</p>
                         </div>
                       </div>
                       <div class="flex items-center gap-3">
-                        <span class="font-bold text-[#003057]">${formatCurrency(DOOR_SIZES.find(d => d.id === door.size)?.price || 0)}</span>
+                        <span class="font-bold text-[#003057]">${formatCurrency(price)}</span>
                         <button onclick="removeOverheadDoor(${idx})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold">×</button>
                       </div>
                     </div>
-                  `).join('')}
+                  `}).join('')}
                 </div>
               ` : '<p class="text-gray-400 text-sm italic mb-4">No overhead doors added yet</p>'}
 
-              <!-- Add New Overhead Door -->
+              <!-- Add New Overhead Door - STEPWISE HEIGHT × WIDTH -->
               <div class="bg-blue-50 rounded-lg p-4 border-2 border-dashed border-blue-200">
-                <p class="font-semibold text-sm mb-3 text-[#003057]">Add Overhead Door:</p>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <select id="newDoorSize" class="p-2 border rounded-lg bg-white">
-                    <option value="">Select Size</option>
-                    ${availableDoorSizes.map(d => `<option value="${d.id}">${d.label} - ${formatCurrency(d.price)}</option>`).join('')}
-                  </select>
-                  <select id="newDoorType" class="p-2 border rounded-lg bg-white">
-                    <option value="rollup">Roll-Up Door</option>
-                    <option value="sectional">Sectional Door</option>
-                  </select>
-                  <select id="newDoorPlacement" class="p-2 border rounded-lg bg-white">
-                    <option value="gabled">Gabled End</option>
-                    <option value="eave">Eave Side</option>
-                  </select>
+                <p class="font-semibold text-sm mb-3 text-[#003057]">Add Overhead Door (Step by Step):</p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                  <!-- Step 1: Height (filtered by eligibility) -->
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">1. Height</label>
+                    <select id="newDoorHeight" onchange="updateDoorPricePreview()" class="w-full p-2 border rounded-lg bg-white">
+                      <option value="">Select</option>
+                      ${getEligibleDoorHeights(state.eaveHeight).map(h => `<option value="${h.value}">${h.label}</option>`).join('')}
+                    </select>
+                  </div>
+
+                  <!-- Step 2: Width -->
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">2. Width</label>
+                    <select id="newDoorWidth" onchange="updateDoorPricePreview()" class="w-full p-2 border rounded-lg bg-white">
+                      <option value="">Select</option>
+                      ${DOOR_WIDTHS.map(w => `<option value="${w.value}">${w.label}</option>`).join('')}
+                    </select>
+                  </div>
+
+                  <!-- Step 3: Type -->
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">3. Type</label>
+                    <select id="newDoorType" class="w-full p-2 border rounded-lg bg-white">
+                      <option value="rollup">Roll-Up</option>
+                      <option value="sectional">Sectional</option>
+                    </select>
+                  </div>
+
+                  <!-- Step 4: Placement -->
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">4. Placement</label>
+                    <select id="newDoorPlacement" class="w-full p-2 border rounded-lg bg-white">
+                      <option value="gabled">Gabled End</option>
+                      <option value="eave">Eave Side</option>
+                    </select>
+                  </div>
                 </div>
-                <button onclick="addOverheadDoor()" class="mt-3 w-full py-2 bg-[#003057] text-white rounded-lg font-semibold hover:bg-[#004477]">
+
+                <!-- Price Preview -->
+                <div id="doorPricePreview" class="bg-white rounded-lg p-3 mb-3 text-center">
+                  <p class="text-gray-500 text-sm">Select height and width to see price</p>
+                </div>
+
+                <button onclick="addOverheadDoorNew()" class="w-full py-2 bg-[#003057] text-white rounded-lg font-semibold hover:bg-[#004477]">
                   + Add Door
                 </button>
               </div>
@@ -1529,6 +1685,70 @@
       render();
     }
 
+    // NEW: Stepwise door selection with height × width
+    function updateDoorPricePreview() {
+      const heightSelect = document.getElementById('newDoorHeight');
+      const widthSelect = document.getElementById('newDoorWidth');
+      const previewDiv = document.getElementById('doorPricePreview');
+
+      if (!heightSelect || !widthSelect || !previewDiv) return;
+
+      const height = parseInt(heightSelect.value);
+      const width = parseInt(widthSelect.value);
+
+      if (height && width) {
+        const price = getDoorPrice(height, width);
+        if (price > 0) {
+          previewDiv.innerHTML = `
+            <p class="text-lg font-bold text-[#003057]">${height}' × ${width}' Door</p>
+            <p class="text-2xl font-bold text-green-600">${formatCurrency(price)}</p>
+          `;
+        } else {
+          previewDiv.innerHTML = `<p class="text-red-500 text-sm">Size combination not available</p>`;
+        }
+      } else {
+        previewDiv.innerHTML = `<p class="text-gray-500 text-sm">Select height and width to see price</p>`;
+      }
+    }
+
+    function addOverheadDoorNew() {
+      const heightSelect = document.getElementById('newDoorHeight');
+      const widthSelect = document.getElementById('newDoorWidth');
+      const typeSelect = document.getElementById('newDoorType');
+      const placementSelect = document.getElementById('newDoorPlacement');
+
+      const height = parseInt(heightSelect?.value);
+      const width = parseInt(widthSelect?.value);
+
+      if (!height || !width) {
+        alert('Please select both door height and width');
+        return;
+      }
+
+      // Validate against price matrix
+      const price = getDoorPrice(height, width);
+      if (price <= 0) {
+        alert('This size combination is not available. Please select a different size.');
+        return;
+      }
+
+      // Validate door height against eave height
+      const eaveHeight = parseInt(state.eaveHeight);
+      if (height > eaveHeight - ADMIN_CONFIG.doorHeightClearance) {
+        alert(`Door height cannot exceed ${eaveHeight - ADMIN_CONFIG.doorHeightClearance} ft for a ${eaveHeight} ft eave height.`);
+        return;
+      }
+
+      state.doors.overhead.push({
+        height: height,
+        width: width,
+        size: `${height}x${width}`,  // For backward compatibility
+        type: typeSelect?.value || 'rollup',
+        placement: placementSelect?.value || 'gabled'
+      });
+      render();
+    }
+
     function removeOverheadDoor(index) {
       state.doors.overhead.splice(index, 1);
       render();
@@ -1575,9 +1795,20 @@
                   ${category.items.filter(item => !item.id.startsWith('door_')).map(item => {
                     const qty = state.addons[item.id] || 0;
                     const selected = qty > 0;
+
+                    // Calculate price display based on pricing type
                     let priceDisplay = formatCurrency(item.price);
-                    if (item.perSqFt) {
-                      priceDisplay = formatCurrency(item.perSqFt * size.sqft) + ` ($${item.perSqFt}/sq ft)`;
+                    let priceNote = '';
+
+                    if (item.perLF) {
+                      // Gutter pricing: LF-based
+                      const gutterLF = calculateGutterLF(state.buildingSize);
+                      const gutterPrice = calculateGutterPrice(state.buildingSize);
+                      priceDisplay = formatCurrency(gutterPrice);
+                      priceNote = `${gutterLF} LF × $${ADMIN_CONFIG.gutterPricePerLF}/LF`;
+                    } else if (item.perSqFt) {
+                      priceDisplay = formatCurrency(item.perSqFt * size.sqft);
+                      priceNote = `${size.sqft} sq ft × $${item.perSqFt}/sq ft`;
                     }
 
                     // Items with quantity controls
@@ -1600,12 +1831,33 @@
                       `;
                     }
 
-                    // Toggle items (yes/no)
+                    // Toggle items (yes/no) - special display for perLF items like gutters
+                    if (item.perLF) {
+                      return `
+                        <div class="flex items-center justify-between p-3 rounded-lg border-2 ${selected ? 'border-[#05c3de] bg-[#e0f7fa]' : 'border-gray-200 bg-white'}">
+                          <div class="flex-1">
+                            <span class="font-semibold">${item.name}</span>
+                            <div class="text-xs text-gray-500 mt-1">${priceNote}</div>
+                          </div>
+                          <div class="flex items-center gap-4">
+                            <span class="font-bold text-[#003057]">${priceDisplay}</span>
+                            <button onclick="toggleAddon('${item.id}')"
+                                    class="w-10 h-10 rounded-full text-lg font-bold"
+                                    style="background: ${selected ? '#05c3de' : '#f3f4f6'}; color: ${selected ? 'white' : '#9ca3af'}">
+                              ${selected ? '✓' : '+'}
+                            </button>
+                          </div>
+                        </div>
+                      `;
+                    }
+
+                    // Standard toggle items
                     return `
                       <div class="flex items-center justify-between p-3 rounded-lg border-2 ${selected ? 'border-[#05c3de] bg-[#e0f7fa]' : 'border-gray-200 bg-white'}">
                         <div class="flex-1">
                           <span class="font-semibold">${item.name}</span>
                           ${item.note ? `<span class="text-gray-500 text-sm ml-2">(${item.note})</span>` : ''}
+                          ${priceNote ? `<div class="text-xs text-gray-500 mt-1">${priceNote}</div>` : ''}
                         </div>
                         <div class="flex items-center gap-4">
                           <span class="font-bold text-[#003057]">${priceDisplay}</span>
@@ -1658,13 +1910,24 @@
         // Standard 301 Walk-through door (included in base)
         items.push({ name: `  ✓ 3070 Walk-Through Door (Standard)`, price: 0 });
 
-        // Overhead doors
+        // Overhead doors (use new height × width if available)
         if (building.doors.overhead && building.doors.overhead.length > 0) {
           building.doors.overhead.forEach(door => {
-            const doorSize = DOOR_SIZES.find(d => d.id === door.size);
-            const doorLabel = doorSize ? doorSize.label : door.size;
+            // Try new height×width price matrix first, fallback to DOOR_SIZES
+            let doorPrice = 0;
+            let doorLabel = '';
+
+            if (door.height && door.width) {
+              doorPrice = getDoorPrice(door.height, door.width);
+              doorLabel = `${door.height}' × ${door.width}'`;
+            } else {
+              const doorSize = DOOR_SIZES.find(d => d.id === door.size);
+              doorPrice = doorSize ? doorSize.price : 0;
+              doorLabel = doorSize ? doorSize.label : door.size;
+            }
+
             const doorType = door.type === 'rollup' ? 'Roll-Up' : 'Sectional';
-            items.push({ name: `  ${doorLabel} ${doorType} Door`, price: doorSize ? doorSize.price : 0 });
+            items.push({ name: `  ${doorLabel} ${doorType} Door`, price: doorPrice });
           });
         }
 
@@ -1684,8 +1947,21 @@
           cat.items.forEach(item => {
             const qty = building.addons[item.id] || 0;
             if (qty > 0 && !item.id.startsWith('door_')) {
-              let price = item.perSqFt ? item.perSqFt * size.sqft : item.price * qty;
-              const displayName = qty > 1 ? `  ${item.name} × ${qty}` : `  ${item.name}`;
+              let price = 0;
+              let displayName = `  ${item.name}`;
+
+              if (item.perLF) {
+                // Gutter pricing: LF-based
+                const gutterLF = calculateGutterLF(building.buildingSize);
+                price = calculateGutterPrice(building.buildingSize);
+                displayName = `  ${item.name} (${gutterLF} LF)`;
+              } else if (item.perSqFt) {
+                price = item.perSqFt * size.sqft;
+              } else {
+                price = item.price * qty;
+                displayName = qty > 1 ? `  ${item.name} × ${qty}` : `  ${item.name}`;
+              }
+
               items.push({ name: displayName, price });
             }
           });
