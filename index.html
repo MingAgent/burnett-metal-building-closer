@@ -1537,13 +1537,11 @@
       let buildingTypeElements = '';
 
       // Calculate clearance zones (2'-6" = 2.5 ft from posts)
-      const clearanceFt = 2.5;
-      const clearancePixels = clearanceFt * scale;
+      // Note: clearanceFt, clearancePixels, centerPostX already defined above for door positioning
       const postWidth = 8;
 
-      // Post positions
+      // Post positions (centerPostX already defined above)
       const leftPostX = buildingX;
-      const centerPostX = buildingX + scaledWidth / 2;
       const rightPostX = buildingX + scaledWidth;
 
       // Clearance zone indicators (shown for all building types)
