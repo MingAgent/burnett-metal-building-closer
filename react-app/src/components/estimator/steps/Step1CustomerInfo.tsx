@@ -42,14 +42,14 @@ export function Step1CustomerInfo() {
       animate="animate"
       className="space-y-8"
     >
-      <motion.p variants={itemVariants} className="text-[#A3A3A3]">
+      <motion.p variants={itemVariants} className="text-gray-600">
         Please provide your contact information so we can prepare your custom estimate.
         <span className="text-[#FF6A00] ml-1">*</span> indicates required fields.
       </motion.p>
 
       {/* Contact Information */}
       <motion.div variants={itemVariants} className="space-y-6">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
           <User className="w-5 h-5 text-[#FF6A00]" />
           Contact Information
         </h3>
@@ -88,7 +88,7 @@ export function Step1CustomerInfo() {
 
       {/* Construction Site Address - FIRST */}
       <motion.div variants={itemVariants} className="space-y-6">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
           <Building2 className="w-5 h-5 text-[#FF6A00]" />
           Construction Site Address
         </h3>
@@ -134,7 +134,7 @@ export function Step1CustomerInfo() {
 
       {/* Billing Address - SECOND with checkbox */}
       <motion.div variants={itemVariants} className="space-y-6">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
           <MapPin className="w-5 h-5 text-[#FF6A00]" />
           Billing Address
         </h3>
@@ -148,13 +148,13 @@ export function Step1CustomerInfo() {
               onChange={(e) => handleSameAsConstructionChange(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-5 h-5 rounded border-2 border-white/20 bg-[#111111] peer-checked:bg-[#FF6A00] peer-checked:border-[#FF6A00] transition-all duration-200 flex items-center justify-center">
+            <div className="w-5 h-5 rounded border-2 border-gray-300 bg-white peer-checked:bg-[#FF6A00] peer-checked:border-[#FF6A00] transition-all duration-200 flex items-center justify-center">
               {customer.sameAsMailingAddress && (
                 <Check className="w-3 h-3 text-white" />
               )}
             </div>
           </div>
-          <span className="text-[#A3A3A3] group-hover:text-white transition-colors">
+          <span className="text-gray-600 group-hover:text-gray-800 transition-colors">
             Same as construction site address
           </span>
         </label>
@@ -208,9 +208,9 @@ export function Step1CustomerInfo() {
       {/* Privacy Note */}
       <motion.div
         variants={itemVariants}
-        className="mt-8 p-4 bg-[#1A1A1A] rounded-xl border border-[#FF6A00]/20"
+        className="mt-8 p-4 bg-orange-50 rounded-xl border border-[#FF6A00]/20"
       >
-        <p className="text-sm text-[#A3A3A3]">
+        <p className="text-sm text-gray-600">
           <span className="text-[#FF6A00] font-semibold">Note:</span> Your information is secure and will only be used to prepare your estimate and contact you about your building project.
         </p>
       </motion.div>

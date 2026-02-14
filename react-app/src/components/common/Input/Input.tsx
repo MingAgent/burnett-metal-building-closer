@@ -20,7 +20,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-xs font-semibold text-[#A3A3A3] uppercase tracking-wider mb-2"
+            className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2"
           >
             {label}
           </label>
@@ -33,7 +33,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         >
           {leftIcon && (
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#666666]">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
               {leftIcon}
             </div>
           )}
@@ -44,17 +44,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               w-full px-4 py-3.5
               ${leftIcon ? 'pl-11' : ''}
               ${rightIcon ? 'pr-11' : ''}
-              bg-[#111111]
-              text-white
-              placeholder-[#666666]
+              bg-white
+              text-gray-900
+              placeholder-gray-400
               border rounded-xl
               transition-all duration-200
               outline-none
               ${error
-                ? 'border-red-500/50 focus:ring-2 focus:ring-red-500/30 focus:border-red-500'
-                : 'border-white/8 hover:border-white/15 focus:ring-2 focus:ring-[#14B8A6]/30 focus:border-[#14B8A6]'
+                ? 'border-red-500 focus:ring-2 focus:ring-red-500/30 focus:border-red-500'
+                : 'border-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-[#FF6A00]/30 focus:border-[#FF6A00]'
               }
-              ${isFocused ? 'bg-[#1A1A1A]' : ''}
+              ${isFocused ? 'bg-gray-50' : ''}
               ${className}
             `}
             onFocus={() => setIsFocused(true)}
