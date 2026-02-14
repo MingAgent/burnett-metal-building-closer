@@ -2,21 +2,24 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useEstimatorStore } from '../../../store/estimatorStore';
 import { DOOR_POST_CLEARANCE_FT } from '../../../constants/pricing';
+import type { DoorConfig } from '../../../types/estimator';
 
 interface BuildingProfileProps {
   showDoors?: boolean;
   showClearanceZones?: boolean;
   className?: string;
+  selectedDoorId?: string | null;
+  onDoorClick?: (doorId: string) => void;
 }
 
 export function BuildingProfile({
-  showDoors: _showDoors = false,
+  showDoors = true,
   showClearanceZones = false,
-  className = ''
+  className = '',
+  selectedDoorId = null,
+  onDoorClick
 }: BuildingProfileProps) {
-  // _showDoors will be used in future for rendering doors on the building
-  void _showDoors;
-  const { building, colors } = useEstimatorStore();
+  const { building, colors, accessories } = useEstimatorStore();
   const { width, length, height, buildingView } = building;
 
   // Calculate display dimensions based on view
@@ -57,6 +60,29 @@ export function BuildingProfile({
   const roofColor = colors.roof;
   const wallColor = colors.walls;
   const trimColor = colors.trim;
+
+  // Get doors for the current view
+  const allDoors = [...accessories.walkDoors, ...accessories.rollUpDoors];
+  const doorsOnCurrentWall = allDoors.filter(door => door.wall === buildingView);
+
+  // Calculate door position in pixels
+  const getDoorPixelPosition = (door: DoorConfig) => {
+    const position = door.position || 5;
+    const doorWidth = door.width || 3;
+    const doorHeight = door.height || 7;
+
+    // Convert feet to pixels
+    const xPos = buildingX + (position * scale);
+    const doorWidthPx = doorWidth * scale;
+    const doorHeightPx = doorHeight * scale;
+
+    return {
+      x: xPos,
+      y: groundY - doorHeightPx,
+      width: doorWidthPx,
+      height: doorHeightPx
+    };
+  };
 
   // Generate roof path
   const roofPath = useMemo(() => {
@@ -185,6 +211,96 @@ export function BuildingProfile({
             opacity="0.6"
           />
         ))}
+
+        {/* Doors on current wall */}
+        {showDoors && doorsOnCurrentWall.map((door, index) => {
+          const doorPos = getDoorPixelPosition(door);
+          const isSelected = selectedDoorId === door.id;
+          const isWalkDoor = door.type === 'walk';
+
+          return (
+            <motion.g
+              key={door.id}
+              initial={{ opacity: 0, scaleY: 0 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
+              style={{ transformOrigin: `${doorPos.x + doorPos.width / 2}px ${groundY}px` }}
+              onClick={() => onDoorClick?.(door.id)}
+              className={onDoorClick ? 'cursor-pointer' : ''}
+            >
+              {/* Door frame */}
+              <rect
+                x={doorPos.x}
+                y={doorPos.y}
+                width={doorPos.width}
+                height={doorPos.height}
+                fill={isWalkDoor ? '#4a3728' : '#5a4535'}
+                stroke={isSelected ? '#14B8A6' : trimColor}
+                strokeWidth={isSelected ? 3 : 2}
+              />
+
+              {/* Door details based on type */}
+              {isWalkDoor ? (
+                <>
+                  {/* Walk door panel */}
+                  <rect
+                    x={doorPos.x + 4}
+                    y={doorPos.y + 4}
+                    width={doorPos.width - 8}
+                    height={doorPos.height - 8}
+                    fill="#3d2d1f"
+                    stroke="#2a1f14"
+                    strokeWidth="1"
+                  />
+                  {/* Door handle */}
+                  <circle
+                    cx={doorPos.x + doorPos.width - 8}
+                    cy={doorPos.y + doorPos.height / 2}
+                    r={3}
+                    fill="#c4a882"
+                  />
+                </>
+              ) : (
+                <>
+                  {/* Roll-up door horizontal lines */}
+                  {Array.from({ length: Math.floor(doorPos.height / 15) }).map((_, i) => (
+                    <line
+                      key={i}
+                      x1={doorPos.x + 2}
+                      y1={doorPos.y + 10 + i * 15}
+                      x2={doorPos.x + doorPos.width - 2}
+                      y2={doorPos.y + 10 + i * 15}
+                      stroke="#3d2d1f"
+                      strokeWidth="1"
+                    />
+                  ))}
+                </>
+              )}
+
+              {/* Door label */}
+              <text
+                x={doorPos.x + doorPos.width / 2}
+                y={doorPos.y - 8}
+                textAnchor="middle"
+                className="text-xs font-medium"
+                fill={isSelected ? '#14B8A6' : '#666'}
+              >
+                {isWalkDoor ? `W${accessories.walkDoors.findIndex(d => d.id === door.id) + 1}` : `O${accessories.rollUpDoors.findIndex(d => d.id === door.id) + 1}`}
+              </text>
+
+              {/* Position indicator */}
+              <text
+                x={doorPos.x + doorPos.width / 2}
+                y={groundY + 15}
+                textAnchor="middle"
+                className="text-xs"
+                fill="#888"
+              >
+                {door.position}'
+              </text>
+            </motion.g>
+          );
+        })}
 
         {/* Dimension labels */}
         {/* Width */}
