@@ -134,7 +134,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
       // Navigation Actions
       nextStep: () => {
         const { currentStep } = get();
-        if (currentStep < 6) {
+        if (currentStep < 7) {
           set({ currentStep: currentStep + 1 });
           get().calculatePricing();
         }
@@ -148,7 +148,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
       },
 
       goToStep: (step: number) => {
-        if (step >= 1 && step <= 6) {
+        if (step >= 1 && step <= 7) {
           set({ currentStep: step });
           get().calculatePricing();
         }
