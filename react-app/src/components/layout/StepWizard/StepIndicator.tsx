@@ -15,7 +15,7 @@ interface StepIndicatorProps {
 
 export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-center mb-8 px-4">
+    <div className="flex items-center justify-between mb-8">
       {steps.map((step, index) => {
         const isActive = currentStep === step.id;
         const isCompleted = currentStep > step.id;
@@ -40,9 +40,9 @@ export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicator
                   ? 'bg-gradient-to-br from-[#FF6A00] to-[#FF8533] text-white shadow-lg shadow-[#FF6A00]/30'
                   : isCompleted
                     ? 'bg-[#22C55E] text-white'
-                    : 'bg-[#1A1A1A] text-white/70 border border-white/10'
+                    : 'bg-gray-800 text-white border border-gray-700'
                 }
-                focus:outline-none focus:ring-2 focus:ring-[#14B8A6]/50 focus:ring-offset-2 focus:ring-offset-[#0A0A0A]
+                focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:ring-offset-2 focus:ring-offset-white
               `}
             >
               {/* Active glow ring */}
@@ -80,7 +80,7 @@ export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicator
             <motion.span
               className="hidden lg:block ml-3 text-sm font-medium"
               animate={{
-                color: isActive ? '#FF6A00' : isCompleted ? '#22C55E' : '#666666'
+                color: isActive ? '#FF6A00' : isCompleted ? '#22C55E' : '#374151'
               }}
             >
               {step.title}
@@ -88,9 +88,9 @@ export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicator
 
             {/* Connector Line */}
             {index < steps.length - 1 && (
-              <div className="relative mx-3 md:mx-4 w-8 md:w-16 lg:w-20">
+              <div className="relative flex-1 mx-2 md:mx-3 min-w-[20px]">
                 {/* Background Line */}
-                <div className="absolute top-1/2 -translate-y-1/2 w-full h-0.5 bg-white/10 rounded-full" />
+                <div className="absolute top-1/2 -translate-y-1/2 w-full h-0.5 bg-gray-200 rounded-full" />
                 {/* Progress Line */}
                 <motion.div
                   className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full"
