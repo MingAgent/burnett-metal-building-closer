@@ -51,7 +51,7 @@ export function StepWizard({
         onStepClick={onStepClick}
       />
 
-      {/* Step Content with Animation */}
+      {/* Step Content with Animation - Glassmorphism Card */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentStep}
@@ -59,10 +59,18 @@ export function StepWizard({
           initial="initial"
           animate="animate"
           exit="exit"
-          className="bg-white rounded-2xl shadow-xl overflow-hidden"
+          className="relative rounded-2xl overflow-hidden border-2 border-[#FF6A00] shadow-2xl shadow-orange-500/10"
+          style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+          }}
         >
+          {/* Glassmorphism overlay effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent pointer-events-none" />
+
           {/* Step Header */}
-          <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-8 py-6">
+          <div className="relative bg-gradient-to-r from-orange-600 to-orange-500 px-8 py-6">
             <motion.h2
               className="text-2xl font-bold text-white"
               initial={{ opacity: 0, y: -10 }}
@@ -74,7 +82,7 @@ export function StepWizard({
           </div>
 
           {/* Step Body */}
-          <div className="p-8">
+          <div className="relative p-8">
             {currentStepData?.component}
           </div>
         </motion.div>

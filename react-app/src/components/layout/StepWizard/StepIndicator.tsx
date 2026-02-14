@@ -42,7 +42,7 @@ export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicator
                     ? 'bg-[#22C55E] text-white'
                     : 'bg-gray-800 text-white border border-gray-700'
                 }
-                focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:ring-offset-2 focus:ring-offset-white
+                focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:ring-offset-2 focus:ring-offset-gray-900
               `}
             >
               {/* Active glow ring */}
@@ -80,7 +80,7 @@ export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicator
             <motion.span
               className="hidden lg:block ml-3 text-sm font-medium"
               animate={{
-                color: isActive ? '#FF6A00' : isCompleted ? '#22C55E' : '#374151'
+                color: isActive ? '#FF6A00' : isCompleted ? '#22C55E' : '#9CA3AF'
               }}
             >
               {step.title}
@@ -90,7 +90,7 @@ export function StepIndicator({ steps, currentStep, onStepClick }: StepIndicator
             {index < steps.length - 1 && (
               <div className="relative flex-1 mx-2 md:mx-3 min-w-[20px]">
                 {/* Background Line */}
-                <div className="absolute top-1/2 -translate-y-1/2 w-full h-0.5 bg-gray-200 rounded-full" />
+                <div className="absolute top-1/2 -translate-y-1/2 w-full h-0.5 bg-gray-600 rounded-full" />
                 {/* Progress Line */}
                 <motion.div
                   className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full"
