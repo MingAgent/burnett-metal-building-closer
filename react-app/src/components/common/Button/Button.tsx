@@ -22,10 +22,10 @@ const variantStyles = {
     active:translate-y-0
   `,
   secondary: `
-    bg-[#1A1A1A]
+    bg-[#1e2a45]
     text-white
     border border-white/12
-    hover:bg-[#222222]
+    hover:bg-[#243352]
     hover:border-white/20
   `,
   outline: `
@@ -72,7 +72,7 @@ export function Button({
         inline-flex items-center justify-center gap-2
         font-semibold
         transition-all duration-200
-        focus:outline-none focus:ring-2 focus:ring-[#14B8A6]/50 focus:ring-offset-2 focus:ring-offset-[#0A0A0A]
+        focus:outline-none focus:ring-2 focus:ring-[#14B8A6]/50 focus:ring-offset-2 focus:ring-offset-[#141d31]
         disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:transform-none
         ${variantStyles[variant]}
         ${sizeStyles[size]}

@@ -75,7 +75,7 @@ export function SignaturesSection({
       )}
 
       {/* Contract Summary */}
-      <div className="bg-[#111111] rounded-xl border border-white/10 p-6">
+      <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Contract Summary</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -106,7 +106,7 @@ export function SignaturesSection({
       </div>
 
       {/* Payment Method Selection */}
-      <div className="bg-[#111111] rounded-xl border border-white/10 p-6">
+      <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-[#14B8A6]" />
           Payment Method for First Draw
@@ -136,7 +136,7 @@ export function SignaturesSection({
       </div>
 
       {/* Owner Signature */}
-      <div className="bg-[#111111] rounded-xl border border-white/10 p-6">
+      <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">Owner Signature</h3>
           {isOwnerComplete && (
@@ -162,7 +162,7 @@ export function SignaturesSection({
                 }
               }}
               placeholder="Enter your full legal name"
-              className="w-full px-4 py-3 bg-[#0A0A0A] border border-white/10 rounded-lg text-white placeholder-[#666] focus:border-[#14B8A6] focus:outline-none transition-colors"
+              className="w-full px-4 py-3 bg-[#141d31] border border-white/10 rounded-lg text-white placeholder-[#666] focus:border-[#14B8A6] focus:outline-none transition-colors"
               disabled={!allSectionsComplete}
             />
           </div>
@@ -173,7 +173,7 @@ export function SignaturesSection({
               type="text"
               value={currentDate}
               readOnly
-              className="w-full px-4 py-3 bg-[#0A0A0A] border border-white/10 rounded-lg text-white/50"
+              className="w-full px-4 py-3 bg-[#141d31] border border-white/10 rounded-lg text-white/50"
             />
           </div>
         </div>
@@ -193,7 +193,7 @@ export function SignaturesSection({
       </div>
 
       {/* Contractor Signature */}
-      <div className="bg-[#111111] rounded-xl border border-white/10 p-6">
+      <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">Contractor Signature</h3>
           {isContractorComplete && (
@@ -219,7 +219,7 @@ export function SignaturesSection({
                 }
               }}
               placeholder="Contractor representative name"
-              className="w-full px-4 py-3 bg-[#0A0A0A] border border-white/10 rounded-lg text-white placeholder-[#666] focus:border-[#14B8A6] focus:outline-none transition-colors"
+              className="w-full px-4 py-3 bg-[#141d31] border border-white/10 rounded-lg text-white placeholder-[#666] focus:border-[#14B8A6] focus:outline-none transition-colors"
               disabled={!allSectionsComplete}
             />
           </div>
@@ -230,7 +230,7 @@ export function SignaturesSection({
               type="text"
               value={currentDate}
               readOnly
-              className="w-full px-4 py-3 bg-[#0A0A0A] border border-white/10 rounded-lg text-white/50"
+              className="w-full px-4 py-3 bg-[#141d31] border border-white/10 rounded-lg text-white/50"
             />
           </div>
         </div>

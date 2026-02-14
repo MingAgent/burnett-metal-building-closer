@@ -30,7 +30,7 @@ export function ContractSection({
   return (
     <motion.div
       variants={itemVariants}
-      className={`bg-[#111111] rounded-xl border border-white/10 overflow-hidden ${className}`}
+      className={`bg-[#1e2a45] rounded-xl border border-white/10 overflow-hidden ${className}`}
     >
       {/* Content */}
       <div className="p-6 space-y-6">
@@ -39,7 +39,7 @@ export function ContractSection({
 
       {/* Acknowledgment Section */}
       {requiresAck && (
-        <div className="border-t border-white/10 p-6 bg-[#0A0A0A]">
+        <div className="border-t border-white/10 p-6 bg-[#141d31]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* Checkbox */}
             <label className="flex items-start gap-3 cursor-pointer group flex-1">

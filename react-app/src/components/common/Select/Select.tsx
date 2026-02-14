@@ -43,7 +43,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             className={`
               w-full px-4 py-3.5 pr-11
               appearance-none
-              bg-[#111111]
+              bg-[#1e2a45]
               text-white
               border rounded-xl
               transition-all duration-200
@@ -51,9 +51,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               cursor-pointer
               ${error
                 ? 'border-red-500/50 focus:ring-2 focus:ring-red-500/30 focus:border-red-500'
-                : 'border-white/8 hover:border-white/15 focus:ring-2 focus:ring-[#14B8A6]/30 focus:border-[#14B8A6]'
+                : 'border-white/10 hover:border-white/20 focus:ring-2 focus:ring-[#14B8A6]/30 focus:border-[#14B8A6]'
               }
-              ${isFocused ? 'bg-[#1A1A1A]' : ''}
+              ${isFocused ? 'bg-[#243352]' : ''}
               ${className}
             `}
             onFocus={() => setIsFocused(true)}
@@ -61,7 +61,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {...props}
           >
             {placeholder && (
-              <option value="" disabled className="text-[#666666] bg-[#111111]">
+              <option value="" disabled className="text-[#666666] bg-[#1e2a45]">
                 {placeholder}
               </option>
             )}
@@ -69,7 +69,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               <option
                 key={option.value}
                 value={option.value}
-                className="bg-[#111111] text-white py-2"
+                className="bg-[#1e2a45] text-white py-2"
               >
                 {option.label}
               </option>

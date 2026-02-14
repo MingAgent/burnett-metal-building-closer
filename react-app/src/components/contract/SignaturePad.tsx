@@ -174,7 +174,7 @@ export function SignaturePad({
           relative rounded-xl overflow-hidden border-2 transition-all duration-200
           ${hasSignature
             ? 'border-[#14B8A6] bg-[#14B8A6]/5'
-            : 'border-white/20 bg-[#111111]'
+            : 'border-white/20 bg-[#1e2a45]'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}
         `}

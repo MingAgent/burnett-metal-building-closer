@@ -396,10 +396,10 @@ export function ContractWizard() {
       variants={containerVariants}
       initial="initial"
       animate="animate"
-      className="min-h-screen bg-[#0A0A0A]"
+      className="min-h-screen bg-[#141d31]"
     >
       {/* Header */}
-      <div className="bg-[#111111] border-b border-white/10 px-4 py-4 sticky top-0 z-10">
+      <div className="bg-[#1e2a45] border-b border-white/10 px-4 py-4 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileText className="w-6 h-6 text-[#14B8A6]" />

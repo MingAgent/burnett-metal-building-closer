@@ -47,24 +47,28 @@ export interface BuildingConfig {
 // Door and Window Types
 export type DoorType = 'walk' | 'rollUp';
 export type DoorSize = '3x7' | '4x7' | '6x7' | '8x8' | '10x10' | '12x12';
+export type WallPosition = 'front' | 'back' | 'left' | 'right';
 
 export interface DoorConfig {
   id: string;
   type: DoorType;
   size: DoorSize;
-  wall: 'front' | 'back' | 'left' | 'right';
+  width: number;  // Width in feet
+  height: number; // Height in feet
+  wall: WallPosition;
+  position: number; // Position in feet from left edge of wall
   quantity: number;
 }
 
 export interface WindowConfig {
   id: string;
-  size: '30x36' | '36x48';
+  size: '3x3' | '4x4';
   wall: 'front' | 'back' | 'left' | 'right';
   quantity: number;
 }
 
 // Accessories Types
-export type InsulationType = 'none' | 'ceiling' | 'full';
+export type InsulationType = 'none' | 'wall' | 'ceiling' | 'full';
 
 export interface AccessoriesConfig {
   walkDoors: DoorConfig[];

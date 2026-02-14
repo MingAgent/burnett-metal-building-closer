@@ -54,8 +54,9 @@ export const INTERNAL_COSTS = {
   // Insulation costs (our cost per sqft)
   insulation: {
     none: 0,
-    ceiling: 0.65,                  // Sell for $1.25
-    full: 1.35,                     // Sell for $2.50
+    wall: 0.70,                     // Wall only - Sell for $1.35
+    ceiling: 0.65,                  // Ceiling only - Sell for $1.25
+    full: 1.35,                     // Full (Wall + Ceiling) - Sell for $2.50
   },
 
   // Concrete costs (our cost)
@@ -115,6 +116,7 @@ export const SELLING_PRICES = {
   },
   insulation: {
     none: 0,
+    wall: 1.35,
     ceiling: 1.25,
     full: 2.50,
   },

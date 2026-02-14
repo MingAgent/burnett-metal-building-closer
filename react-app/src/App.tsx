@@ -8,18 +8,20 @@ import { ContractWizard } from './components/contract';
 // Import step components
 import Step1CustomerInfo from './components/estimator/steps/Step1CustomerInfo';
 import Step2BuildingSize from './components/estimator/steps/Step2BuildingSize';
-import Step3Accessories from './components/estimator/steps/Step3Accessories';
-import Step4Colors from './components/estimator/steps/Step4Colors';
-import Step5Concrete from './components/estimator/steps/Step5Concrete';
-import Step6Review from './components/estimator/steps/Step6Review';
+import Step3EaveHeight from './components/estimator/steps/Step3EaveHeight';
+import Step4Doors from './components/estimator/steps/Step4Doors';
+import Step5Colors from './components/estimator/steps/Step5Colors';
+import Step6AddOns from './components/estimator/steps/Step6AddOns';
+import Step7Summary from './components/estimator/steps/Step7Summary';
 
 const steps = [
   { id: 1, title: 'Customer Info', component: <Step1CustomerInfo /> },
   { id: 2, title: 'Building Size', component: <Step2BuildingSize /> },
-  { id: 3, title: 'Accessories', component: <Step3Accessories /> },
-  { id: 4, title: 'Colors', component: <Step4Colors /> },
-  { id: 5, title: 'Concrete', component: <Step5Concrete /> },
-  { id: 6, title: 'Review', component: <Step6Review /> }
+  { id: 3, title: 'Eave Height', component: <Step3EaveHeight /> },
+  { id: 4, title: 'Doors', component: <Step4Doors /> },
+  { id: 5, title: 'Colors', component: <Step5Colors /> },
+  { id: 6, title: 'Add-Ons', component: <Step6AddOns /> },
+  { id: 7, title: 'Summary', component: <Step7Summary /> }
 ];
 
 function App() {
@@ -62,7 +64,28 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div
+      className="min-h-screen relative"
+      style={{
+        backgroundColor: '#141d31',
+        backgroundImage: `
+          repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 35px,
+            #1e2a45 35px,
+            #1e2a45 36px
+          ),
+          repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 35px,
+            #1e2a45 35px,
+            #1e2a45 36px
+          )
+        `,
+      }}
+    >
       {/* Header */}
       <Header />
 
@@ -93,7 +116,7 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#0A0A0A] border-t border-white/8 text-[#A3A3A3] py-10 mt-12">
+      <footer className="bg-[#141d31] border-t border-white/10 text-[#A3A3A3] py-10 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>

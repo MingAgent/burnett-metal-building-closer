@@ -32,15 +32,15 @@ export function WarrantiesSection({
 
       {/* Warranty Highlights */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#111111] rounded-xl border border-white/10 p-4 text-center">
+        <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-4 text-center">
           <div className="text-3xl font-bold text-[#14B8A6]">1 Year</div>
           <p className="text-sm text-[#A3A3A3] mt-1">Workmanship Warranty</p>
         </div>
-        <div className="bg-[#111111] rounded-xl border border-white/10 p-4 text-center">
+        <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-4 text-center">
           <div className="text-3xl font-bold text-[#14B8A6]">40 Years</div>
           <p className="text-sm text-[#A3A3A3] mt-1">Roof Panel Warranty*</p>
         </div>
-        <div className="bg-[#111111] rounded-xl border border-white/10 p-4 text-center">
+        <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-4 text-center">
           <div className="text-3xl font-bold text-[#14B8A6]">40 Years</div>
           <p className="text-sm text-[#A3A3A3] mt-1">Paint Finish Warranty*</p>
         </div>

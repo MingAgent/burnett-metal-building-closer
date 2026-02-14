@@ -117,18 +117,12 @@ export const INSULATION_PRICES = {
   full: 4500      // Wall + Roof combined
 } as const;
 
-// ==================== GUTTER PRICING (from original HTML) ====================
-export const GUTTER_CONFIG = {
-  pricePerLF: 10,           // $10 per linear foot (industry range $8-15)
-  warningMin: 8,
-  warningMax: 15,
-  downspoutSpacingFt: 25,   // One downspout every 25 feet
-  defaultMode: 'both_eaves' // 'both_eaves' or 'perimeter'
-} as const;
+// ==================== GUTTER PRICING ====================
+export const GUTTER_PRICE = 1897; // Flat rate for gutters & downspouts
 
 export const OPTION_PRICES = {
   ventilation: 150,
-  gutters: 10,              // per linear foot (updated from $4.50)
+  gutters: 1897,            // Flat rate for gutters & downspouts
   wainscot: 1200            // per wall (3' tall wainscot siding)
 } as const;
 

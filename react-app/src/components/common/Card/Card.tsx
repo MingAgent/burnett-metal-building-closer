@@ -10,11 +10,11 @@ export interface CardProps extends HTMLMotionProps<'div'> {
 }
 
 const variantStyles = {
-  default: 'bg-[#111111] border border-white/8',
-  elevated: 'bg-[#1A1A1A] border border-white/12 shadow-lg shadow-black/40',
-  glass: 'bg-[#1A1A1A]/80 backdrop-blur-xl border border-white/8',
-  glow: 'bg-[#1A1A1A] border border-[#FF6A00]/30 shadow-lg shadow-[#FF6A00]/10',
-  bordered: 'bg-[#111111] border border-white/15'
+  default: 'bg-[#1e2a45] border border-white/10',
+  elevated: 'bg-[#243352] border border-white/12 shadow-lg shadow-blue-900/40',
+  glass: 'bg-[#1e2a45]/80 backdrop-blur-xl border border-white/10',
+  glow: 'bg-[#1e2a45] border border-[#FF6A00]/30 shadow-lg shadow-[#FF6A00]/10',
+  bordered: 'bg-[#1e2a45] border border-white/15'
 };
 
 const paddingStyles = {

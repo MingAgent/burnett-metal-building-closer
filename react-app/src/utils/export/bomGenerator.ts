@@ -255,12 +255,12 @@ export function generateBOM(state: EstimatorState): BillOfMaterials {
 
   if (accessories.insulation !== 'none') {
     const insulationType = accessories.insulation;
-    const insulationSqft = insulationType === 'ceiling' ? sqft : sqft + wallSqft;
+    const insulationSqft = insulationType === 'ceiling' ? sqft : (insulationType === 'wall' ? wallSqft : sqft + wallSqft);
 
     lineItems.push(createLineItem(
       'INSULATION',
       `INS-${insulationType.toUpperCase()}-001`,
-      `Insulation - ${insulationType === 'ceiling' ? 'Ceiling Only R-19' : 'Full (Ceiling + Walls)'}`,
+      `Insulation - ${insulationType === 'ceiling' ? 'Ceiling Only R-19' : insulationType === 'wall' ? 'Wall Only' : 'Full (Ceiling + Walls)'}`,
       insulationSqft,
       'sqft',
       INTERNAL_COSTS.insulation[insulationType],
@@ -478,7 +478,7 @@ export async function exportBOMToExcel(bom: BillOfMaterials): Promise<Blob> {
   // Header warning
   summarySheet.mergeCells('A1:H1');
   const warningCell = summarySheet.getCell('A1');
-  warningCell.value = '⚠️ INTERNAL DOCUMENT - CONFIDENTIAL - DO NOT SHARE WITH CLIENTS ⚠️';
+  warningCell.value = '** INTERNAL DOCUMENT - CONFIDENTIAL - DO NOT SHARE WITH CLIENTS **';
   warningCell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 14 };
   warningCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0000' } };
   warningCell.alignment = { horizontal: 'center' };
@@ -563,12 +563,12 @@ export async function exportBOMToExcel(bom: BillOfMaterials): Promise<Blob> {
   // Margin health indicator
   summarySheet.getCell('A22').value = 'Margin Health:';
   const marginHealth = bom.summary.grossMarginPercent >= MARGIN_THRESHOLDS.excellent
-    ? '🟢 EXCELLENT'
+    ? 'EXCELLENT'
     : bom.summary.grossMarginPercent >= MARGIN_THRESHOLDS.target
-      ? '🟡 ON TARGET'
+      ? 'ON TARGET'
       : bom.summary.grossMarginPercent >= MARGIN_THRESHOLDS.minimum
-        ? '🟠 ACCEPTABLE'
-        : '🔴 BELOW MINIMUM';
+        ? 'ACCEPTABLE'
+        : 'BELOW MINIMUM';
   summarySheet.getCell('B22').value = marginHealth;
 
   // Column widths
@@ -586,7 +586,7 @@ export async function exportBOMToExcel(bom: BillOfMaterials): Promise<Blob> {
   // Warning header
   lineItemsSheet.mergeCells('A1:L1');
   const bomWarning = lineItemsSheet.getCell('A1');
-  bomWarning.value = '⚠️ INTERNAL DOCUMENT - CONTAINS COST & MARGIN DATA - DO NOT SHARE ⚠️';
+  bomWarning.value = '** INTERNAL DOCUMENT - CONTAINS COST & MARGIN DATA - DO NOT SHARE **';
   bomWarning.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
   bomWarning.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0000' } };
   bomWarning.alignment = { horizontal: 'center' };
@@ -654,7 +654,7 @@ export async function exportBOMToExcel(bom: BillOfMaterials): Promise<Blob> {
   });
 
   categorySheet.mergeCells('A1:E1');
-  categorySheet.getCell('A1').value = '⚠️ INTERNAL - MARGIN ANALYSIS BY CATEGORY ⚠️';
+  categorySheet.getCell('A1').value = '** INTERNAL - MARGIN ANALYSIS BY CATEGORY **';
   categorySheet.getCell('A1').font = { bold: true, color: { argb: 'FFFFFF' } };
   categorySheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0000' } };
   categorySheet.getCell('A1').alignment = { horizontal: 'center' };

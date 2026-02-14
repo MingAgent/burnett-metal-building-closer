@@ -13,7 +13,7 @@ export function ContractProgress({
   onSectionClick
 }: ContractProgressProps) {
   return (
-    <div className="bg-[#111111] rounded-xl border border-white/10 p-4 sticky top-4">
+    <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-4 sticky top-4">
       <h3 className="text-sm font-semibold text-white uppercase tracking-wide mb-4">
         Contract Progress
       </h3>
@@ -88,7 +88,7 @@ export function ContractProgress({
           <span>Progress</span>
           <span>{completedSections.size} of {CONTRACT_SECTIONS.length} sections</span>
         </div>
-        <div className="h-2 bg-[#0A0A0A] rounded-full overflow-hidden">
+        <div className="h-2 bg-[#141d31] rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-[#14B8A6] to-[#14B8A6]/70 transition-all duration-500"
             style={{ width: `${(completedSections.size / CONTRACT_SECTIONS.length) * 100}%` }}

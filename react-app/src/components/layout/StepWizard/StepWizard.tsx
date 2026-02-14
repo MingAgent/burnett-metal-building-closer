@@ -59,11 +59,9 @@ export function StepWizard({
           initial="initial"
           animate="animate"
           exit="exit"
-          className="relative rounded-2xl overflow-hidden border-2 border-[#FF6A00] shadow-2xl shadow-orange-500/10"
+          className="relative rounded-2xl overflow-hidden border-2 border-cyan-400 shadow-2xl shadow-cyan-500/10"
           style={{
-            background: 'rgba(255, 255, 255, 0.65)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            background: '#FFFFFF',
           }}
         >
           {/* Glassmorphism overlay effect */}

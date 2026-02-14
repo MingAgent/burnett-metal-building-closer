@@ -22,7 +22,7 @@ export function CustomerInfoSection() {
       {/* Customer Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Contact Information */}
-        <div className="bg-[#111111] rounded-xl border border-white/10 p-6 space-y-4">
+        <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6 space-y-4">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <User className="w-5 h-5 text-[#14B8A6]" />
             Contact Details
@@ -53,7 +53,7 @@ export function CustomerInfoSection() {
         </div>
 
         {/* Addresses */}
-        <div className="bg-[#111111] rounded-xl border border-white/10 p-6 space-y-4">
+        <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6 space-y-4">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <MapPin className="w-5 h-5 text-[#14B8A6]" />
             Addresses
@@ -78,30 +78,30 @@ export function CustomerInfoSection() {
       </div>
 
       {/* Project Summary */}
-      <div className="bg-[#111111] rounded-xl border border-white/10 p-6">
+      <div className="bg-[#1e2a45] rounded-xl border border-white/10 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Project Summary</h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#0A0A0A] rounded-lg p-4 text-center">
+          <div className="bg-[#141d31] rounded-lg p-4 text-center">
             <span className="text-xs text-[#A3A3A3] uppercase tracking-wide">Building Size</span>
             <p className="text-xl font-bold text-white mt-1">
               {building.width}' × {building.length}'
             </p>
           </div>
 
-          <div className="bg-[#0A0A0A] rounded-lg p-4 text-center">
+          <div className="bg-[#141d31] rounded-lg p-4 text-center">
             <span className="text-xs text-[#A3A3A3] uppercase tracking-wide">Eave Height</span>
             <p className="text-xl font-bold text-white mt-1">{building.height}'</p>
           </div>
 
-          <div className="bg-[#0A0A0A] rounded-lg p-4 text-center">
+          <div className="bg-[#141d31] rounded-lg p-4 text-center">
             <span className="text-xs text-[#A3A3A3] uppercase tracking-wide">Square Feet</span>
             <p className="text-xl font-bold text-white mt-1">
               {(building.width * building.length).toLocaleString()}
             </p>
           </div>
 
-          <div className="bg-[#0A0A0A] rounded-lg p-4 text-center">
+          <div className="bg-[#141d31] rounded-lg p-4 text-center">
             <span className="text-xs text-[#A3A3A3] uppercase tracking-wide">Total Estimate</span>
             <p className="text-xl font-bold text-[#14B8A6] mt-1">
               ${pricing.grandTotal.toLocaleString()}

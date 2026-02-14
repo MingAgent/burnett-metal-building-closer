@@ -7,7 +7,7 @@ export function Header() {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-      className="relative bg-[#0A0A0A] border-b border-white/8"
+      className="relative bg-[#141d31] border-b border-white/10"
     >
       {/* Subtle glow effect at top */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#FF6A00]/50 to-transparent" />
