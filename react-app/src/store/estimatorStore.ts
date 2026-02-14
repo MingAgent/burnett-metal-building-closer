@@ -491,7 +491,65 @@ export const useEstimatorStore = create<EstimatorStore>()(
         colors: state.colors,
         concrete: state.concrete,
         contract: state.contract
-      })
+      }),
+      // Merge persisted state with initial state to handle schema migrations
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<EstimatorStore>;
+        return {
+          ...currentState,
+          ...persisted,
+          // Deep merge customer to ensure new address fields have defaults
+          customer: {
+            ...initialCustomer,
+            ...(persisted.customer || {}),
+            billingAddress: {
+              ...emptyAddress,
+              ...(persisted.customer?.billingAddress || {})
+            },
+            constructionAddress: {
+              ...emptyAddress,
+              ...(persisted.customer?.constructionAddress || {})
+            }
+          },
+          // Deep merge building to ensure new fields have defaults
+          building: {
+            ...initialBuilding,
+            ...(persisted.building || {}),
+            breezeway: {
+              ...initialBuilding.breezeway,
+              ...(persisted.building?.breezeway || {})
+            }
+          },
+          // Deep merge accessories
+          accessories: {
+            ...initialAccessories,
+            ...(persisted.accessories || {})
+          },
+          // Deep merge colors
+          colors: {
+            ...initialColors,
+            ...(persisted.colors || {})
+          },
+          // Deep merge concrete
+          concrete: {
+            ...initialConcrete,
+            ...(persisted.concrete || {})
+          },
+          // Deep merge contract
+          contract: {
+            ...initialContract,
+            ...(persisted.contract || {}),
+            sections: {
+              ...initialContract.sections,
+              ...(persisted.contract?.sections || {})
+            },
+            signatures: {
+              ...initialContract.signatures,
+              ...(persisted.contract?.signatures || {})
+            }
+          }
+        };
+      }
     }
   )
 );
